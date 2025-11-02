@@ -231,10 +231,10 @@ if (__name__ == '__main__'):
 
 
     ###### NOTE test with the new loss ########
-    timestep = 4
-    patch = 128
+    # timestep = 4
+    # patch = 128
     
-    deepvel_net = DeepVel_run(root = main_root, in_channels=timestep, batch = 64, dataset_path = main_root + f'datasets_5x5_experiments/normalized/timestep_{timestep}/cropped/data_{patch}x{patch}', network_path = main_root + f'models_5x5_norm/timestep_{timestep}/{patch}x{patch}/')
+    # deepvel_net = DeepVel_run(root = main_root, in_channels=timestep, batch = 64, dataset_path = main_root + f'datasets_5x5_experiments/normalized/timestep_{timestep}/cropped/data_{patch}x{patch}', network_path = main_root + f'models_5x5_norm/timestep_{timestep}/{patch}x{patch}/')
     # params_model_div_vor = '/home/xenoss/data/kecman_project/DeepVel_3D_velocity/new_loss_experiments/version_9/checkpoints/DeepVel_torch_epoch_119_7.48748.pt'
 
     # print(f"NEW model: Evaluating model with {timestep} timesteps and patch size {patch}")
@@ -254,30 +254,39 @@ if (__name__ == '__main__'):
     ##########################################
 
     ############# NOTE testing the hybrid model ##########
-#     timestep = 4
-#     patch = 128
+    timestep = 4
+    patch = 128
 
-#     deepvel_net = DeepVel_run_hybrid(root = main_root, in_channels=timestep, batch = 64, dataset_path = main_root + f'datasets_5x5_experiments/normalized/timestep_{timestep}/cropped/data_{patch}x{patch}', network_path = main_root + f'models_5x5_norm/timestep_{timestep}/{patch}x{patch}/')
-#     params_model_div_vor = '/home/xenoss/data/kecman_project/DeepVel_3D_velocity/hybrid_model/mse_loss/checkpoints/DeepVel_torch_epoch_79_0.05759.pt'
+    # deepvel_net = DeepVel_run_hybrid(root = main_root, in_channels=timestep, batch = 64, dataset_path = main_root + f'datasets_5x5_experiments/normalized/timestep_{timestep}/cropped/data_{patch}x{patch}', network_path = main_root + f'models_5x5_norm/timestep_{timestep}/{patch}x{patch}/')
+    # params_model_div_vor = '/home/xenoss/data/kecman_project/DeepVel_3D_velocity/hybrid_model/mse_loss/checkpoints/DeepVel_torch_epoch_79_0.05759.pt'
+    
+    #sanity check for the newly trained hybrid models
+    main_root = "/home/xenoss/dat/"
+    data_path = os.path.join(main_root, f'multi_height_data_new/final_dataset_multiheight/train')
+    model_path = "/home/xenoss/dat/models_multi_height/tau_1.0/checkpoints/"
+    deepvel_net = DeepVel_run_hybrid2(root = main_root, in_channels=4, batch = 64, dataset_path = data_path, network_path = model_path, tau="1.0")
+    params_model_div_vor = "/home/xenoss/dat/models_multi_height/tau_1.0/checkpoints/DeepVel_torch_epoch_99_0.06743.pt"
 
-#     print(f"HYBRID model: Evaluating model with {timestep} timesteps and patch size {patch}")
-#     test_save_path = '/home/xenoss/data/kecman_project/DeepVel_3D_velocity/hybrid_model/mse_loss/test'
-#     #plot_prediction_and_scatter_full_map_vertical(timestep, deepvel_net, params_model_div_vor, dataset_path = main_root + f'datasets_5x5_experiments/main_dataset_test/normalized/', test_save_path=test_save_path, name = f"hybrid_model_v2_full_map_with_I_t{timestep}_p{patch}", n_input_channels=timestep, write_metrics=False, return_metrics=False, hybrid2=True)
 
-#     metrics = plot_prediction_and_scatter_full_map_vertical(
-#     deepvel_object=deepvel_net,
-#     params_model=params_model_div_vor,
-#     dataset_path=main_root + f'datasets_5x5_experiments/main_dataset_test/normalized/',
-#     test_save_path=test_save_path,
-#     name=f"hybrid_model_v1_full_map_t{timestep}_p{patch}",
-#     n_input_channels=timestep,
-#     plot_intensity=False,
-#     write_metrics=False,
-#     return_metrics=True,
-#     hybrid1=True,
-#     title="Three input (I, Bz, vz) Hybrid Model"
-# )
-#     print(metrics)
+    print(f"HYBRID model: Evaluating model with {timestep} timesteps and patch size {patch}")
+    test_save_path = '/home/xenoss/data/kecman_project/DeepVel_3D_velocity/hybrid_model/mse_loss/test'
+    #plot_prediction_and_scatter_full_map_vertical(timestep, deepvel_net, params_model_div_vor, dataset_path = main_root + f'datasets_5x5_experiments/main_dataset_test/normalized/', test_save_path=test_save_path, name = f"hybrid_model_v2_full_map_with_I_t{timestep}_p{patch}", n_input_channels=timestep, write_metrics=False, return_metrics=False, hybrid2=True)
+
+    metrics = plot_prediction_and_scatter_full_map_vertical(
+    deepvel_object=deepvel_net,
+    params_model=params_model_div_vor,
+    dataset_path=main_root + f'datasets_5x5_experiments/main_dataset_test/normalized/',
+    #test_save_path=test_save_path,
+    test_save_path=None,
+    name=f"hybrid_model_v1_full_map_t{timestep}_p{patch}",
+    n_input_channels=timestep,
+    plot_intensity=False,
+    write_metrics=False,
+    return_metrics=True,
+    hybrid2=True,
+    title="Three input (I, Bz, vz) Hybrid Model"
+)
+    print(metrics)
 
     ##################################################
 

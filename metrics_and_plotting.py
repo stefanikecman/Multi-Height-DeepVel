@@ -291,7 +291,7 @@ def plot_scatter_plot (original_velocity, predicted_velocity, path_save, filenam
     plt.close()
 
 
-def plot_prediction_and_scatter_full_map_vertical (deepvel_object, params_model, dataset_path, test_save_path, name, zoomed_in_size = None, plot_intensity = True, n_input_channels = 2, scatter_dim = None, zoom_out = 0, write_metrics = False, denormalized = False, return_metrics = False, hybrid1=False, hybrid2=False, title = None):
+def plot_prediction_and_scatter_full_map_vertical (deepvel_object, params_model, dataset_path, test_save_path, name, zoomed_in_size = None, plot_intensity = True, n_input_channels = 2, scatter_dim = None, zoom_out = 0, write_metrics = False, denormalized = False, return_metrics = False, hybrid1=False, hybrid2=False, title = None, tau = None):
     """
     Plot predictions and scatter plots for a full map in a vertical layout.
     Args:
@@ -312,13 +312,22 @@ def plot_prediction_and_scatter_full_map_vertical (deepvel_object, params_model,
         hybrid2: Boolean indicating if using hybrid model type 2 (requires B and vz)
         title: Optional title for the plot
     """
-    plt.rcParams['font.size'] = 45
-    intensity_full_map = np.load(dataset_path + f"intensities_{n_input_channels}.npy")
-    velocity_full_map = np.load(dataset_path + f"velocities_{n_input_channels}.npy")
+    plt.rcParams['font.size'] = 40
+    if hybrid2 == False:
+        intensity_full_map = np.load(dataset_path + f"intensities_{n_input_channels}.npy")
+
+    if tau is not None:
+        velocity_full_map = np.load(dataset_path + f"velocities_tau_{tau}.npy")
+    else:
+        velocity_full_map = np.load(dataset_path + f"velocities_{n_input_channels}.npy")
 
     if hybrid1 or hybrid2:
-        B = np.load(dataset_path + f"B_{n_input_channels}.npy")
-        vz = np.load(dataset_path + f"vz_{n_input_channels}.npy")
+        if tau is not None:
+            B = np.load(dataset_path + f"B_tau_{tau}.npy")
+            vz = np.load(dataset_path + f"vz_tau_{tau}.npy")
+        else:
+            B = np.load(dataset_path + f"B_{n_input_channels}.npy")
+            vz = np.load(dataset_path + f"vz_{n_input_channels}.npy")
 
     extent = [0, velocity_full_map.shape[1]*0.016, 0, velocity_full_map.shape[0]*0.016]
 
@@ -334,14 +343,17 @@ def plot_prediction_and_scatter_full_map_vertical (deepvel_object, params_model,
         w1 = (w_full//2 - int(w_zoomed_in / 2)) 
         w2 = (w_full//2 + int(w_zoomed_in / 2))
 
-        intensity_to_plot = intensity_full_map[:, h1:h2, w1:w2]
+        if hybrid2 == False:
+            intensity_to_plot = intensity_full_map[:, h1:h2, w1:w2]
         velocity_to_plot = velocity_full_map[:, h1:h2, w1:w2]
 
     else:
-        intensity_to_plot = intensity_full_map
+        if hybrid2 == False:
+            intensity_to_plot = intensity_full_map
         velocity_to_plot = velocity_full_map
 
-    intensity_to_plot = torch.from_numpy(intensity_to_plot.astype(np.float32))
+    if hybrid2 == False:
+        intensity_to_plot = torch.from_numpy(intensity_to_plot.astype(np.float32))
     velocity_to_plot = torch.from_numpy(velocity_to_plot.astype(np.float32))
 
     if hybrid1:
@@ -357,7 +369,7 @@ def plot_prediction_and_scatter_full_map_vertical (deepvel_object, params_model,
     rmse_l = torch.sqrt(mse_l)
 
     matplotlib.use('agg')
-    plt.figure()
+    # plt.figure()
 
     nrows = 4 if plot_intensity else 3
 
@@ -371,7 +383,6 @@ def plot_prediction_and_scatter_full_map_vertical (deepvel_object, params_model,
     if plot_intensity == True:
         intensity_0 = intensity_to_plot[n_input_channels/2 -1, :, :].cpu().numpy()
         intensity_1 = intensity_to_plot[n_input_channels/2, :, :].cpu().numpy()
-
 
     vel_0 = velocity_to_plot[0, :, :].cpu().numpy()
     vel_1 = velocity_to_plot[1, :, :].cpu().numpy()
@@ -412,13 +423,13 @@ def plot_prediction_and_scatter_full_map_vertical (deepvel_object, params_model,
         vmin = -3 * std_vel/1e5
         vmax = -1 * vmin
 
-    im = ax[idx][0].imshow(vel_0.T, cmap='bwr', vmin = vmin, vmax = vmax, origin = 'lower', extent = extent)
+    im = ax[idx][0].imshow(vel_0.T, cmap='bwr', vmin = vmin, vmax = vmax, origin = 'lower', extent = extent, aspect='auto')
     ax[idx][0].set_title('vx - ground truth', pad = 20)
     ax[idx][0].set_xlabel('x [Mm]')
     ax[idx][0].set_ylabel('y [Mm]')
     cbar = add_colorbar(im, ax[idx][0])
 
-    ax[idx][1].imshow(vel_1.T, cmap='bwr', vmin = vmin, vmax = vmax, origin = 'lower', extent = extent)
+    ax[idx][1].imshow(vel_1.T, cmap='bwr', vmin = vmin, vmax = vmax, origin = 'lower', extent = extent, aspect='auto')
     ax[idx][1].set_title('vy - ground truth', pad = 20)
     ax[idx][1].set_xlabel('x [Mm]')
     ax[idx][1].set_ylabel('y [Mm]')
@@ -426,13 +437,13 @@ def plot_prediction_and_scatter_full_map_vertical (deepvel_object, params_model,
 
     idx +=1
 
-    ax[idx][0].imshow(vel_0_pred.T, cmap='bwr', vmin = vmin, vmax = vmax, origin = 'lower', extent = extent)
+    ax[idx][0].imshow(vel_0_pred.T, cmap='bwr', vmin = vmin, vmax = vmax, origin = 'lower', extent = extent, aspect='auto')
     ax[idx][0].set_title('vx - predicted', pad = 20)
     ax[idx][0].set_xlabel('x [Mm]')
     ax[idx][0].set_ylabel('y [Mm]')
     cbar = add_colorbar(im, ax[idx][0])
 
-    ax[idx][1].imshow(vel_1_pred.T, cmap='bwr', vmin = vmin, vmax = vmax, origin = 'lower', extent = extent)
+    ax[idx][1].imshow(vel_1_pred.T, cmap='bwr', vmin = vmin, vmax = vmax, origin = 'lower', extent = extent, aspect='auto')
     ax[idx][1].set_title('vy - predicted', pad = 20)
     ax[idx][1].set_xlabel('x [Mm]')
     ax[idx][1].set_ylabel('y [Mm]')
@@ -480,8 +491,9 @@ def plot_prediction_and_scatter_full_map_vertical (deepvel_object, params_model,
         plt.suptitle(title, fontsize=70, y=0.98)
 
     if test_save_path is not None:
-        plt.savefig(test_save_path + 'full_analysis_' + name + '.png')
-    plt.close()
+        # plt.savefig(test_save_path + 'full_analysis_' + name + '.png')
+        fig.savefig(test_save_path + 'full_analysis_' + name + '.png')
+    plt.close(fig)
 
     if return_metrics:
         return {"mse": mse_l, "rmse": rmse_l, "pearson_vx": pearson0, "pearson_vy": pearson1, "slope_vx": slope_x, "slope_vy": slope_y, 
