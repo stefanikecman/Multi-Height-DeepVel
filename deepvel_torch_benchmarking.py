@@ -352,7 +352,10 @@ class DeepVel_run(object):
         """
 
         model_weights = torch.load(saved_model, map_location=torch.device(device))
-        self.model.load_state_dict(model_weights)
+        if isinstance(self.model, nn.DataParallel):
+            self.model.module.load_state_dict(model_weights)
+        else:
+            self.model.load_state_dict(model_weights)
         self.model.eval()
 
         if isinstance(x, np.ndarray): 

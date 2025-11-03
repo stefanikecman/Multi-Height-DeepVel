@@ -881,16 +881,26 @@ def create_benchmarking_trainset(main_save_path = "/home/xenoss/dat/multi_height
 
             np.save(os.path.join(intensity_save_path, f'intensity_{cc}_{ch}_{cw}.npy'), I_crop)
 
+def create_benchmarking_testset(main_save_path = "/home/xenoss/dat/multi_height_data_new"):
+
+    I_load_path = main_save_path + "/I/test/stacked/stacked_intensities_test_norm.npy"
+    final_save_path = main_save_path + "/final_dataset_multiheight/test/"
+
+    I_data = np.load(I_load_path)[-4:, :, :]
+
+    np.save(final_save_path+f"intensities_tau_1.0.npy", I_data)
+    
 if (__name__ == '__main__'):
     
     main_root = "/dat/xenoss/"
 
     ############ NOTE INTENSITY GENERATION FOR BENCHMARK COMPARISON ##############
+    # create_benchmarking_testset()
     # create_intensity_cubes()
     # print("Intensities for DeepVel benchmarking created.")
 
-    create_benchmarking_trainset()
-    print("Benchmarking trainset created.")
+    # create_benchmarking_trainset()
+    # print("Benchmarking trainset created.")
     #############################################################################
 
     ############ NOTE MULTI-HEIGHT TEST DATA GENERATION ##############
@@ -899,7 +909,7 @@ if (__name__ == '__main__'):
     ##################################################################
 
     ############ NOTE MULTI-HEIGHT DATA DENERATION ##############
-    main_save_path = "/home/xenoss/dat/multi_height_data_new"
+    # main_save_path = "/home/xenoss/dat/multi_height_data_new"
     # create_multiheight_datacubes()
     # print("Multi-height data cubes created.")
     # create_multiheight_trainset(main_save_path)

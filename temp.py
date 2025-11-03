@@ -1,3 +1,4 @@
+import glob
 import numpy as np
 import muram as muram
 import matplotlib.pyplot as plt
@@ -5,35 +6,35 @@ from matplotlib.colors import LogNorm
 from analysis_fn import get_divergence, get_vorticity
 
 
-# path = "/dat/milic/"
-# B_unit=np.sqrt(4*np.pi)
-# iter=16500
-# data = muram.MuramTauSlice(path,iter,1.0)
-# print(type(data.vz.T/1e5))
+tau_levels=[1.0, 1e-1,1e-2,1e-3,1e-4,1e-5,1e-6]
+taus = ["1.0", "1e-1", "1e-2", "1e-3", "1e-4", "1e-5", "1e-6"]
 
-# with open("/home/xenoss/data/kecman_project/DeepVel_3D_velocity/best_model_200_epochs/checkpoints/deepvel_torch_train_params_09_30_2025_15_22_01.npy", "rb") as f:
-#     params_dict = np.load(f, allow_pickle=True).item()
-#     save_losses = np.load(f, allow_pickle=True)
+for i, tau in enumerate(tau_levels):
+    model_path = f"/home/xenoss/dat/models_multi_height/tau_{taus[i]}/checkpoints/*.npy"
+    path = glob.glob(model_path)[0]
+    with open(path, "rb") as f:
+        params_dict = np.load(f, allow_pickle=True).item()
+        save_losses = np.load(f, allow_pickle=True)
 
-# #print(save_losses)
-# print (save_losses.shape)
+    #print(save_losses)
+    print (save_losses.shape)
 
-# x = save_losses[:,0].tolist()
-# train_loss = np.sqrt(save_losses[:,1].tolist())
-# val_loss = np.sqrt(save_losses[:,2].tolist())
+    x = save_losses[:,0].tolist()
+    train_loss = np.sqrt(save_losses[:,1].tolist())
+    val_loss = np.sqrt(save_losses[:,2].tolist())
 
-# plt.figure(figsize=(10, 6))
-# plt.rcParams['font.size'] = 17
-# plt.plot(x, train_loss, label='train loss')
-# plt.plot(x, val_loss, label='val loss')
-# #plt.yscale('log')
-# plt.xlabel('Epochs')
-# plt.ylabel('Loss (RMSE)')
-# plt.title('Training and Validation Loss Curves')
-# plt.legend()
-# #plt.grid(True)
-# plt.savefig('training_validation_loss_best_200.png')
-# plt.show()
+    plt.figure(figsize=(10, 6))
+    plt.rcParams['font.size'] = 17
+    plt.plot(x, train_loss, label='train loss')
+    plt.plot(x, val_loss, label='val loss')
+    #plt.yscale('log')
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss (RMSE)')
+    plt.title('Training and Validation Loss Curves tau = '+str(tau))
+    plt.legend()
+    #plt.grid(True)
+    plt.savefig(f'/home/xenoss/dat/models_multi_height/tau_{taus[i]}/training_validation_loss_'+str(tau)+'.png')
+    # plt.show()
 
 # data_cube_vx = np.load("/home/xenoss/dat/datasets_5x5_experiments/main_dataset_train/stacked_velocities_x_normalized.npy")
 # data_cube_vy = np.load("/home/xenoss/dat/datasets_5x5_experiments/main_dataset_train/stacked_velocities_y_normalized.npy")

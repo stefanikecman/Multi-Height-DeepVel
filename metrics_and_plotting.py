@@ -12,8 +12,15 @@ from prepare_data import file_naming, normalize_layerwise, denormalize_data
 from scipy.stats import linregress
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from analysis_fn import get_divergence, get_vorticity, calculate_correlation, get_all_metrics
+from enum import Enum
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+class ModelType(Enum):
+    DEEPVEL_I = 1
+    DEEPVEL_B = 2
+    HYBRID2 = 3
+    HYBRID3 = 4
 
 def add_colorbar(im, ax, label=None):
     """
@@ -156,9 +163,10 @@ def plot_predictions(int_gt, vel_gt, vel_pred, path_save, filename, plot_intensi
         plt.savefig(path_save + filename + '.png', bbox_inches='tight')
     plt.close()
 
-def plot_test_full_map(deepvel_object, params_model,  dataset_path, test_save_path, name, zoomed_in_size = None, plot_intensity = True, n_input_channels = 2, arrows = False, hybrid1=False, hybrid2=False, return_metrics = False):
+def plot_test_full_map (deepvel_object, params_model, dataset_path, test_save_path, name, zoomed_in_size = None, plot_intensity = True, n_input_channels = 2, 
+                                                   scatter_dim = None, zoom_out = 0, write_metrics = False, denormalized = False, return_metrics = False, model_type = ModelType.DEEPVEL_I, title = None, tau = None, arrows = False):
     """
-    Plot predictions on a full map and save the results.
+    Plot predictions and scatter plots for a full map in a vertical layout.
     Args:
         deepvel_object: Instance of the DeepVel model
         params_model: Model parameters
@@ -168,45 +176,82 @@ def plot_test_full_map(deepvel_object, params_model,  dataset_path, test_save_pa
         zoomed_in_size: Optional tuple specifying the size to zoom in on (height, width)
         plot_intensity: Boolean indicating whether to plot intensity maps
         n_input_channels: Number of input channels in the intensity map (2, 4, or 6)
-        arrows: Boolean indicating whether to overlay arrows on velocity fields
-        hybrid1: Boolean indicating if using hybrid model type 1 (requires I, B and vz)
-        hybrid2: Boolean indicating if using hybrid model type 2 (requires B and vz)
+        scatter_dim: Optional tuple specifying the dimensions to zoom in on for scatter plot (height, width)
+        zoom_out: Value to expand the axes limits for better visualization in scatter plot
+        write_metrics: Boolean indicating whether to write metrics on the plot
+        denormalized: Boolean indicating whether to denormalize velocity data before plotting
         return_metrics: Boolean indicating whether to return calculated metrics
+        model_type: Enum indicating the model type (DEEPVEL_I, DEEPVEL_B, HYBRID1, HYBRID2)
+        title: Optional title for the plot
+        arrows: Boolean indicating whether to overlay arrows on velocity fields
+        tau: Optional optical depth parameter
     """
-    
-    intensity_full_map = np.load(dataset_path + f"intensities_{n_input_channels}.npy")
-    velocity_full_map = np.load(dataset_path + f"velocities_{n_input_channels}.npy")
 
-    if hybrid1 or hybrid2:
-        B = np.load(dataset_path + f"B_{n_input_channels}.npy")
-        vz = np.load(dataset_path + f"vz_{n_input_channels}.npy")
+    plt.rcParams['font.size'] = 40
+        
 
-    if zoomed_in_size is not None:
+    if model_type == ModelType.HYBRID3 or model_type== ModelType.DEEPVEL_I:
+        if tau is None:
+            intensity_full_map = np.load(dataset_path + f"intensities_{n_input_channels}.npy")
+        else:
+            intensity_full_map = np.load(dataset_path + f"intensities_tau_{tau}.npy")
+
+    if model_type == ModelType.HYBRID2 or model_type== ModelType.DEEPVEL_B or model_type== ModelType.HYBRID3:
+        if tau is not None:
+            B = np.load(dataset_path + f"B_tau_{tau}.npy")
+            vz = np.load(dataset_path + f"vz_tau_{tau}.npy")
+        else:
+            B = np.load(dataset_path + f"B_{n_input_channels}.npy")
+            vz = np.load(dataset_path + f"vz_{n_input_channels}.npy")
+
+    if tau is not None:
+        velocity_full_map = np.load(dataset_path + f"velocities_tau_{tau}.npy")
+    else:
+        velocity_full_map = np.load(dataset_path + f"velocities_{n_input_channels}.npy")
+
+
+    extent = [0, velocity_full_map.shape[1]*0.016, 0, velocity_full_map.shape[0]*0.016]
+
+    if zoomed_in_size != None:
+        #plot the central part zoomed in to that size
+        print(intensity_full_map.shape)
         _, h_full, w_full = intensity_full_map.shape
         h_zoomed_in, w_zoomed_in = zoomed_in_size
+
+        # new coordinates:
         h1 = (h_full//2 - int(h_zoomed_in / 2)) 
         h2 = (h_full//2 + int(h_zoomed_in / 2))
         w1 = (w_full//2 - int(w_zoomed_in / 2)) 
         w2 = (w_full//2 + int(w_zoomed_in / 2))
 
-        intensity_to_plot = intensity_full_map[:, h1:h2, w1:w2]
-        B = B[:, h1:h2, w1:w2] if hybrid1 or hybrid2 else None
-        vz = vz[:, h1:h2, w1:w2] if hybrid1 or hybrid2 else None
+        if model_type == ModelType.HYBRID3:
+            intensity_to_plot = intensity_full_map[:, h1:h2, w1:w2]
         velocity_to_plot = velocity_full_map[:, h1:h2, w1:w2]
+
     else:
         intensity_to_plot = intensity_full_map
         velocity_to_plot = velocity_full_map
 
-    intensity_to_plot = torch.from_numpy(intensity_to_plot.astype(np.float32))
-    velocity_to_plot = torch.from_numpy(velocity_to_plot.astype(np.float32))
+    if model_type == ModelType.HYBRID3 or model_type== ModelType.DEEPVEL_I:
+        intensity_to_plot = torch.from_numpy(intensity_to_plot.astype(np.float32))
+    if velocity_to_plot is not None:
+        velocity_to_plot = torch.from_numpy(velocity_to_plot.astype(np.float32))
+    if model_type == ModelType.HYBRID2 or model_type== ModelType.DEEPVEL_B or model_type== ModelType.HYBRID3:
+        B = torch.from_numpy(B.astype(np.float32))
+        vz = torch.from_numpy(vz.astype(np.float32))
 
-    if hybrid1:
+    if model_type == ModelType.HYBRID3:
         velocity_pred = deepvel_object.predict(intensity_to_plot, B, vz, params_model)
-    elif hybrid2:
-        velocity_pred = deepvel_object.predict(B, vz, params_model)
-    else:   
-        velocity_pred = deepvel_object.predict(intensity_to_plot, params_model)
 
+    elif model_type == ModelType.HYBRID2:
+        velocity_pred = deepvel_object.predict(B, vz, params_model)
+        
+    elif model_type == ModelType.DEEPVEL_B:
+        velocity_pred = deepvel_object.predict(B, params_model)
+        
+    else:
+        velocity_pred = deepvel_object.predict(intensity_to_plot, params_model)
+    
     plot_predictions(
         intensity_to_plot, velocity_to_plot, velocity_pred,
         test_save_path, name,
@@ -214,6 +259,7 @@ def plot_test_full_map(deepvel_object, params_model,  dataset_path, test_save_pa
         arrows=arrows
     )
     plot_scatter_plot(velocity_to_plot, velocity_pred, test_save_path, 'scatter_'+name)
+     
 
     divergence_orig = get_divergence(velocity_to_plot[0].cpu().numpy(), velocity_to_plot[1].cpu().numpy())
     divergence_pred = get_divergence(velocity_pred[0].cpu().numpy(), velocity_pred[1].cpu().numpy())
@@ -291,7 +337,8 @@ def plot_scatter_plot (original_velocity, predicted_velocity, path_save, filenam
     plt.close()
 
 
-def plot_prediction_and_scatter_full_map_vertical (deepvel_object, params_model, dataset_path, test_save_path, name, zoomed_in_size = None, plot_intensity = True, n_input_channels = 2, scatter_dim = None, zoom_out = 0, write_metrics = False, denormalized = False, return_metrics = False, hybrid1=False, hybrid2=False, title = None, tau = None):
+def plot_prediction_and_scatter_full_map_vertical (deepvel_object, params_model, dataset_path, test_save_path, name, zoomed_in_size = None, plot_intensity = True, n_input_channels = 2, 
+                                                   scatter_dim = None, zoom_out = 0, write_metrics = False, denormalized = False, return_metrics = False, model_type = ModelType.DEEPVEL_I, title = None, tau = None):
     """
     Plot predictions and scatter plots for a full map in a vertical layout.
     Args:
@@ -308,26 +355,32 @@ def plot_prediction_and_scatter_full_map_vertical (deepvel_object, params_model,
         write_metrics: Boolean indicating whether to write metrics on the plot
         denormalized: Boolean indicating whether to denormalize velocity data before plotting
         return_metrics: Boolean indicating whether to return calculated metrics
-        hybrid1: Boolean indicating if using hybrid model type 1 (requires I, B and vz)
-        hybrid2: Boolean indicating if using hybrid model type 2 (requires B and vz)
+        model_type: Enum indicating the model type (DEEPVEL_I, DEEPVEL_B, HYBRID1, HYBRID2)
         title: Optional title for the plot
+        tau: Optional optical depth parameter
     """
+
     plt.rcParams['font.size'] = 40
-    if hybrid2 == False:
-        intensity_full_map = np.load(dataset_path + f"intensities_{n_input_channels}.npy")
 
-    if tau is not None:
-        velocity_full_map = np.load(dataset_path + f"velocities_tau_{tau}.npy")
-    else:
-        velocity_full_map = np.load(dataset_path + f"velocities_{n_input_channels}.npy")
+    if model_type == ModelType.HYBRID3 or model_type== ModelType.DEEPVEL_I:
+        if tau is None:
+            intensity_full_map = np.load(dataset_path + f"intensities_{n_input_channels}.npy")
+        else:
+            intensity_full_map = np.load(dataset_path + f"intensities_tau_{tau}.npy")
 
-    if hybrid1 or hybrid2:
+    if model_type == ModelType.HYBRID2 or model_type== ModelType.DEEPVEL_B or model_type== ModelType.HYBRID3:
         if tau is not None:
             B = np.load(dataset_path + f"B_tau_{tau}.npy")
             vz = np.load(dataset_path + f"vz_tau_{tau}.npy")
         else:
             B = np.load(dataset_path + f"B_{n_input_channels}.npy")
             vz = np.load(dataset_path + f"vz_{n_input_channels}.npy")
+
+    if tau is not None:
+        velocity_full_map = np.load(dataset_path + f"velocities_tau_{tau}.npy")
+    else:
+        velocity_full_map = np.load(dataset_path + f"velocities_{n_input_channels}.npy")
+
 
     extent = [0, velocity_full_map.shape[1]*0.016, 0, velocity_full_map.shape[0]*0.016]
 
@@ -343,24 +396,31 @@ def plot_prediction_and_scatter_full_map_vertical (deepvel_object, params_model,
         w1 = (w_full//2 - int(w_zoomed_in / 2)) 
         w2 = (w_full//2 + int(w_zoomed_in / 2))
 
-        if hybrid2 == False:
+        if model_type == ModelType.HYBRID3 or model_type== ModelType.DEEPVEL_I:
             intensity_to_plot = intensity_full_map[:, h1:h2, w1:w2]
         velocity_to_plot = velocity_full_map[:, h1:h2, w1:w2]
 
     else:
-        if hybrid2 == False:
+        if model_type == ModelType.HYBRID3 or model_type== ModelType.DEEPVEL_I:
             intensity_to_plot = intensity_full_map
         velocity_to_plot = velocity_full_map
 
-    if hybrid2 == False:
+    if model_type == ModelType.HYBRID3 or model_type== ModelType.DEEPVEL_I:
         intensity_to_plot = torch.from_numpy(intensity_to_plot.astype(np.float32))
-    velocity_to_plot = torch.from_numpy(velocity_to_plot.astype(np.float32))
+    if velocity_to_plot is not None:
+        velocity_to_plot = torch.from_numpy(velocity_to_plot.astype(np.float32))
+    if model_type == ModelType.HYBRID2 or model_type== ModelType.DEEPVEL_B or model_type== ModelType.HYBRID3:
+        B = torch.from_numpy(B.astype(np.float32))
+        vz = torch.from_numpy(vz.astype(np.float32))
 
-    if hybrid1:
+    if model_type == ModelType.HYBRID3:
         velocity_pred = deepvel_object.predict(intensity_to_plot, B, vz, params_model)
 
-    elif hybrid2:
+    elif model_type == ModelType.HYBRID2:
         velocity_pred = deepvel_object.predict(B, vz, params_model)
+
+    elif model_type == ModelType.DEEPVEL_B:
+        velocity_pred = deepvel_object.predict(B, params_model)
         
     else:
         velocity_pred = deepvel_object.predict(intensity_to_plot, params_model)
