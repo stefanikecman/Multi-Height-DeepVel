@@ -14,8 +14,6 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 import time
 import matplotlib
-#from prepare_data import normalize_layerwise
-from metrics_and_plotting import plot_predictions, plot_test_full_map, plot_scatter_plot, calculate_correlation, plot_prediction_and_scatter_full_map_vertical
 from analysis_fn import div_vor_loss
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -27,14 +25,14 @@ class dataset_deepVel(Dataset):
 
     Custom Dataset based on Dataloaders https://docs.pytorch.org/tutorials/beginner/basics/data_tutorial.html
     """ 
-    def __init__(self, dataset_path, test_idx = None, test = False, tau = None, train_on_B = False):
+    def __init__(self, dataset_path, test_idx = None, test = False, tau = None, train_on_B = False, cadence = 10):
         print("Train on B is ", train_on_B)
 
         self.train_on_B = train_on_B
         self.intensities_dir = os.path.join(dataset_path, "inputs/I") if tau is None else os.path.join(dataset_path, f"inputs/I/tau_1.0")
         self.magnetic_fields_dir = os.path.join(dataset_path, "inputs/B") if tau is None else os.path.join(dataset_path, f"inputs/B/tau_{tau}")
         self.velocities_dir = os.path.join(dataset_path, "labels")  if tau is None else os.path.join(dataset_path, f"labels/tau_{tau}")
-
+        self.cadence = cadence
         intensities = os.listdir(self.intensities_dir)
         magnetic_fields = os.listdir(self.magnetic_fields_dir)
         velocities = os.listdir(self.velocities_dir)
@@ -99,18 +97,31 @@ class dataset_deepVel(Dataset):
             idx = self.validation_idx[idx]
 
         if self.train_on_B:
-            B = np.load(self.magnetic_fields_dir + "/"+ self.magnetic_fields[idx])
+            B_full = np.load(self.magnetic_fields_dir + "/"+ self.magnetic_fields[idx])
+            if self.cadence == 30:
+                first_timestep = B_full[0]
+                last_timestep = B_full[-1]
+                B = np.stack([first_timestep, last_timestep], axis=0)
+            else:
+                B = B_full                
+            
             B = torch.from_numpy(B.astype(np.float32))
         
         else:
-            I = np.load(self.intensities_dir + "/"+ self.intensities[idx])
+            I_full = np.load(self.intensities_dir + "/"+ self.intensities[idx])
+            if self.cadence == 30:
+                first_timestep = I_full[0]
+                last_timestep = I_full[-1]
+                I = np.stack([first_timestep, last_timestep], axis=0)
+            else:
+                I = I_full
             I = torch.from_numpy(I.astype(np.float32))
 
         vel = np.load(self.velocities_dir + "/"+ self.velocities[idx])
         vel = torch.from_numpy(vel.astype(np.float32))
 
         self.check_indices(idx, self.test)
-
+        # print("input shape: ", B.shape if self.train_on_B else I.shape, " label shape: ", vel.shape)
         if self.train_on_B:
             return B, vel
         else:
@@ -195,7 +206,7 @@ class DeepVel_run(object):
     """
     Class for running the DeepVel model.
     """
-    def __init__(self, batch, dataset_path, network_path, in_channels = 2, root = None, tau = None, train_on_B = False):
+    def __init__(self, batch, dataset_path, network_path, in_channels = 2, root = None, tau = None, train_on_B = False, cadence=10):
         print("Train on B is ", train_on_B)
         self.root = root
         self.n_filters = 32     
@@ -206,6 +217,7 @@ class DeepVel_run(object):
         self.lr = 1e-4
         self.network_path = network_path
         self.train_on_B = train_on_B
+        self.cadence=cadence
         self.tau = tau
 
         self.model = DeepVel_net(in_channels=self.in_channels, out_channels=self.out_channels, n_filters=self.n_filters, blocks=self.n_conv_layers).to(device)
@@ -214,7 +226,7 @@ class DeepVel_run(object):
 
         if root:
 
-            self.dataset = dataset_deepVel(dataset_path, test_idx = None, test = False, tau=self.tau, train_on_B = self.train_on_B)
+            self.dataset = dataset_deepVel(dataset_path, test_idx = None, test = False, tau=self.tau, train_on_B = self.train_on_B, cadence=self.cadence)
             self.train_len = int(0.8*len(self.dataset))
             self.test_len = len(self.dataset) - self.train_len
 
@@ -358,6 +370,11 @@ class DeepVel_run(object):
             self.model.load_state_dict(model_weights)
         self.model.eval()
 
+        if self.cadence == 30:
+            first_timestep = x[0]
+            last_timestep = x[-1]
+            x = np.stack([first_timestep, last_timestep], axis=0)
+        
         if isinstance(x, np.ndarray): 
             x = torch.from_numpy(x.astype(np.float32))
         
@@ -366,6 +383,8 @@ class DeepVel_run(object):
 
         #x = normalize_layerwise(x)
         start = time.time()
+
+
     
         with torch.no_grad():    
             output = self.model(x.to(device))  
@@ -384,19 +403,19 @@ if (__name__ == '__main__'):
     main_root = "/dat/xenoss/"
     ###### NOTE best version ######
 
-    # network_path = os.path.join(main_root, f'models_benchmarking/DeepVel_I')
-    # data_path = os.path.join(main_root, f'multi_height_data_new/final_dataset_multiheight/train')
-    # deepvel_net = DeepVel_run(root = main_root, in_channels=4, batch = 64, dataset_path = data_path, network_path = os.path.join(network_path, 'checkpoints'), tau="1.0", train_on_B=False)
-    # deepvel_net.train(100)
-
-    # network_path = os.path.join(main_root, f'models_benchmarking/DeepVel_Bz/tau_1.0')
-    # data_path = os.path.join(main_root, f'multi_height_data_new/final_dataset_multiheight/train')
-    # deepvel_net = DeepVel_run(root = main_root, in_channels=4, batch = 64, dataset_path = data_path, network_path = os.path.join(network_path, 'checkpoints'), tau="1.0", train_on_B=True)
-    # deepvel_net.train(100)
-
-    network_path = os.path.join(main_root, f'models_benchmarking/DeepVel_Bz/tau_0.1')
+    network_path = os.path.join(main_root, f'models_benchmarking/cadence_30/DeepVel_I')
     data_path = os.path.join(main_root, f'multi_height_data_new/final_dataset_multiheight/train')
-    deepvel_net = DeepVel_run(root = main_root, in_channels=4, batch = 64, dataset_path = data_path, network_path = os.path.join(network_path, 'checkpoints'), tau="1e-1", train_on_B=True)
+    deepvel_net = DeepVel_run(root = main_root, in_channels=2, batch = 64, dataset_path = data_path, network_path = os.path.join(network_path, 'checkpoints'), tau="1.0", train_on_B=False, cadence=30)
+    deepvel_net.train(100)
+
+    network_path = os.path.join(main_root, f'models_benchmarking/cadence_30/DeepVel_Bz/tau_1.0')
+    data_path = os.path.join(main_root, f'multi_height_data_new/final_dataset_multiheight/train')
+    deepvel_net = DeepVel_run(root = main_root, in_channels=2, batch = 64, dataset_path = data_path, network_path = os.path.join(network_path, 'checkpoints'), tau="1.0", train_on_B=True,cadence=30)
+    deepvel_net.train(100)
+
+    network_path = os.path.join(main_root, f'models_benchmarking/cadence_30/DeepVel_Bz/tau_0.1')
+    data_path = os.path.join(main_root, f'multi_height_data_new/final_dataset_multiheight/train')
+    deepvel_net = DeepVel_run(root = main_root, in_channels=2, batch = 64, dataset_path = data_path, network_path = os.path.join(network_path, 'checkpoints'), tau="1e-1", train_on_B=True, cadence=30)
     deepvel_net.train(100)
 
        

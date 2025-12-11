@@ -138,7 +138,7 @@ def calculate_correlation (original, predicted):
     n_channels = original.shape[0]
 
     for ch in range(n_channels):
-        pearson_coeffs.append(stats.pearsonr(original[0, :, :].flatten(), predicted[0, :, :].flatten()))
+        pearson_coeffs.append(stats.pearsonr(original[ch, :, :].flatten(), predicted[ch, :, :].flatten()))
 
     return pearson_coeffs
 

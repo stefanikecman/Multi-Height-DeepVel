@@ -18,8 +18,6 @@ from torcheval.metrics.functional import binary_accuracy
 import time
 from torchinfo import summary
 import matplotlib
-#from prepare_data import normalize_layerwise
-from metrics_and_plotting import plot_predictions, plot_test_full_map, plot_scatter_plot, calculate_correlation, plot_prediction_and_scatter_full_map_vertical
 from analysis_fn import div_vor_loss
 
 

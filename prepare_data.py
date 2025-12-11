@@ -795,7 +795,7 @@ def create_multiheight_trainset(main_save_path = "/home/xenoss/dat/multi_height_
             np.save(os.path.join(vel_save_path, f'velocities_{cc}_{ch}_{cw}.npy'), vel_crop)
 
 
-def create_multiheight_testset(main_save_path = "/home/xenoss/dat/multi_height_data_new"):
+def create_multiheight_testset_last4(main_save_path = "/home/xenoss/dat/multi_height_data_new"):
     
     B_load_path = main_save_path + "/B/test/stacked/"
     vz_load_path = main_save_path + "/vz/test/stacked/"
@@ -826,6 +826,46 @@ def create_multiheight_testset(main_save_path = "/home/xenoss/dat/multi_height_d
         # np.save(final_save_path+f"B_tau_{taus[tau_i]}.npy", B_data)
         # np.save(final_save_path+f"vz_tau_{taus[tau_i]}.npy", vz_data)
         np.save(final_save_path+f"velocities_tau_{taus[tau_i]}.npy", out_vel)
+
+def create_multiheight_full_testset(main_save_path = "/home/xenoss/dat/multi_height_data_new"):
+    
+    B_load_path = main_save_path + "/B/test/stacked/"
+    vz_load_path = main_save_path + "/vz/test/stacked/"
+    vel_load_path = main_save_path + "/out_velocities/test/stacked/"
+
+    final_save_path = main_save_path + "/final_dataset_multiheight/test/"
+    B_save_path = final_save_path + "/inputs/B/"
+    vz_save_path = final_save_path + "/inputs/vz/"
+    vel_save_path = final_save_path + "/labels/"
+    intensity_save_path = final_save_path + "/inputs/I/tau_1.0/"
+
+    tau_levels=[1, 1e-1,1e-2,1e-3,1e-4,1e-5,1e-6]
+    taus = ["1.0", "1e-1", "1e-2", "1e-3", "1e-4", "1e-5", "1e-6"]
+
+    for tau_i, t in enumerate(tau_levels):
+        print(f"Processing tau = {t}")
+
+        B_data = np.load(os.path.join(B_load_path+f'tau_{taus[tau_i]}/stacked_B_test_norm.npy'))[-61:, :, :]
+        vz_data = np.load(os.path.join(vz_load_path+f'tau_{taus[tau_i]}/stacked_vz_test_norm.npy'))[-61:, :, :]
+        vel_x_data = np.load(os.path.join(vel_load_path+f'tau_{taus[tau_i]}/stacked_vel_x_test_norm.npy'))[-61:, :, :]
+        vel_y_data = np.load(os.path.join(vel_load_path+f'tau_{taus[tau_i]}/stacked_vel_y_test_norm.npy'))[-61:, :, :]
+
+        for i in range(58): #58 = data.shape[0] - 4 + 1, 4 is our test data n channels
+            B_test = B_data[i:i+4, :, :]
+            vz_test = vz_data[i:i+4, :, :]
+            vel_x_test = vel_x_data[i+1:i+3, :, :]
+            vel_y_test = vel_y_data[i+1:i+3, :, :]
+            out_vel_test = np.stack(((vel_x_test[0] + vel_x_test[1]) / 2, (vel_y_test[0] + vel_y_test[1]) / 2), axis=0)
+
+            np.save(B_save_path+f"tau_{taus[tau_i]}/B_{i}.npy", B_test)
+            np.save(vz_save_path+f"tau_{taus[tau_i]}/vz_{i}.npy", vz_test)
+            np.save(vel_save_path+f"tau_{taus[tau_i]}/velocities_{i}.npy", out_vel_test)
+
+    # Intensity needs to be created individually
+    intensity_cube = np.load('/home/xenoss/dat/multi_height_data_new/I/test/stacked/stacked_intensities_test_norm.npy')[-61:, :, :]
+    for i in range(58):
+        intensity_test = intensity_cube[i:i+4, :, :]
+        np.save(intensity_save_path+f'intensity_{i}.npy', intensity_test)
 
 def create_intensity_cubes():
     main_path = '/home/xenoss/dat/intensities/'
@@ -893,7 +933,10 @@ def create_benchmarking_testset(main_save_path = "/home/xenoss/dat/multi_height_
 if (__name__ == '__main__'):
     
     main_root = "/dat/xenoss/"
+    ############ NOTE CREATING FULL MULTIHEIGHT TESTSETS ##############
+    # create_multiheight_full_testset()
 
+    #############################################################################
     ############ NOTE INTENSITY GENERATION FOR BENCHMARK COMPARISON ##############
     # create_benchmarking_testset()
     # create_intensity_cubes()
