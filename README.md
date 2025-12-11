@@ -1,4 +1,4 @@
-# Mapping Plasma Flows in Solar Atmosphere using Deep Learning
+# Multi-height Tracking of Magnetograms and Dopplergrams using Deep Learning
 
 ## Overview
 
@@ -12,11 +12,11 @@ https://www.aanda.org/articles/aa/pdf/2017/08/aa30783-17.pdf
 ## Features
 
 - Neural network models, based on the DeepVel network, for velocity field prediction with variable temporal and spatial input extent
-- Physics-informed loss functions (MSE of: velocity, divergence, vorticity)
-- Hybrid input models with multiple physical inputs (intensity, magnetic field, vertical velocity)
+- Hybrid input models with multiple physical inputs (magnetic field, vertical velocity)
+- Training on data with different cadence and different optical depths
 - Data normalization/denormalization codes
 - Evaluation metrics: MSE, RMSE, Pearson correlation (vx and vy), slope (vy and vy)- for the velocities, divergence and vorticity
-- Visualization: prediction maps, scatter plots, plots with visualized arrows, heatmaps
+- Visualization: prediction maps, scatter plots, plots with visualized arrows
 
 ## Getting Started
 
@@ -24,13 +24,15 @@ https://www.aanda.org/articles/aa/pdf/2017/08/aa30783-17.pdf
 
 - Python 3.8+
 - PyTorch (with CUDA for GPU support)
-- numpy, matplotlib, pandas, seaborn, h5py, scipy
+- numpy, matplotlib, pandas
 
 ### Installation
 
 ```bash
 git clone <repo_url>
 cd DeepVel_3D_velocity
+conda create --name <env-name>
+conda activate <env-name>
 pip install -r requirements.txt
 ```
 
@@ -39,14 +41,14 @@ pip install -r requirements.txt
 Methods for data preparation, normalization and other preprocessing steps are located in `prepare_data.py`.
 
 ### Training
-DeepVel model definition is in `deepvel_torch.py`
+DeepVel model definition is in `deepvel_torch_benchmarking.py`
 
 Train a model using:
 
 ```bash
-python deepvel_torch.py
+python deepvel_torch_benchmarking.py
 ```
-Hybrid-input DeepVel model variants are defined in `hybrid_deepvel_torch.py` and `hybrid_deepvel_torch_v2.py`
+Hybrid-input DeepVel model variants are defined in `hybrid_deepvel_torch.py`
 
 Train a model using:
 
@@ -54,17 +56,17 @@ Train a model using:
 python hybrid_deepvel_torch.py
 ```
 
-or
-
-```bash
-python hybrid_deepvel_torch_v2.py
-```
 ### Evaluation & Visualization
 
 Evaluate models and generate plots (first uncomment the chosen evaluation and adjust the paths):
 
 ```bash
-python test_5x5_experiments.py
+python test_benchmark.py
+```
+or
+
+```bash
+python test_multiheight_hybrid_models.py
 ```
 
 ## Data
