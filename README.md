@@ -24,13 +24,12 @@ https://www.aanda.org/articles/aa/pdf/2017/08/aa30783-17.pdf
 
 - Python 3.8+
 - PyTorch (with CUDA for GPU support)
-- numpy, matplotlib, pandas
 
 ### Installation
 
 ```bash
 git clone <repo_url>
-cd DeepVel_3D_velocity
+cd Multi-Height-DeepVel
 conda create --name <env-name>
 conda activate <env-name>
 pip install -r requirements.txt
