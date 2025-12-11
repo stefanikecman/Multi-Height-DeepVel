@@ -3,55 +3,41 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-from torchvision import transforms
 from torch.utils.data import Dataset, DataLoader, random_split
-import h5py
 import os
-import random
-#from torchsummary import summary
 import torch.optim as optim
 import sys
 from collections import OrderedDict
 from datetime import datetime
-import matplotlib.pyplot as plt
-from torcheval.metrics.functional import binary_accuracy
 import time
-import matplotlib
-#from prepare_data import normalize_layerwise
-from metrics_and_plotting import plot_predictions, plot_test_full_map, plot_scatter_plot, calculate_correlation, plot_prediction_and_scatter_full_map_vertical
-from analysis_fn import div_vor_loss
+from torchinfo import summary
 
 
 class dataset_deepVel(Dataset): 
     """
-    DeepVel dataset class, modified to include magnetic field and vz as inputs.
-    Custom Dataset based on Dataloaders https://docs.pytorch.org/tutorials/beginner/basics/data_tutorial.html
+    Dataset class for DeepVel, modified to take two inputs: B and vz.
     """ 
-    def __init__(self, dataset_path, in_channels, test_idx = None, test = False):
+    def __init__(self, dataset_path, in_channels, test_idx = None, test = False, tau = None):
         self.in_channels = in_channels
-        self.intensities_dir = os.path.join(dataset_path, "inputs")
-        self.magnetic_fields_dir = os.path.join(dataset_path, "B")
-        self.vz_dir = os.path.join(dataset_path, "vz")
-        self.velocities_dir = os.path.join(dataset_path, "labels")
+        self.magnetic_fields_dir = os.path.join(dataset_path, "inputs/B") if tau is None else os.path.join(dataset_path, f"inputs/B/tau_{tau}")
+        self.vz_dir = os.path.join(dataset_path, "inputs/vz") if tau is None else os.path.join(dataset_path, f"inputs/vz/tau_{tau}")
+        self.velocities_dir = os.path.join(dataset_path, "labels") if tau is None else os.path.join(dataset_path, f"labels/tau_{tau}")
 
-        intensities = os.listdir(self.intensities_dir)
         velocities = os.listdir(self.velocities_dir)
         magnetic_fields = os.listdir(self.magnetic_fields_dir)
         vz = os.listdir(self.vz_dir)
+        print("loading data from : ", self.velocities_dir, self.magnetic_fields_dir, self.vz_dir)
 
-        intensities.sort()
         velocities.sort()
         magnetic_fields.sort()
         vz.sort()
 
-        self.intensities = intensities
         self.velocities = velocities
         self.magnetic_fields = magnetic_fields
         self.vz = vz
 
-        self.n_train_datapoints = len(self.intensities)
+        self.n_train_datapoints = len(self.vz)
         
-        #figure out test indices
         self.test = test
         self.test_idx = test_idx
 
@@ -65,7 +51,7 @@ class dataset_deepVel(Dataset):
 
     def check_indices (self, idx, test=False):
         """
-        Check if the indices of the input and label data correspond.    
+        Check if the input magnetic field and vz files correspond to the velocity files.
         Args:
             idx: Index of the data point to check
             test: Boolean indicating if in test mode
@@ -76,42 +62,36 @@ class dataset_deepVel(Dataset):
         if test == True:
             idx = self.validation_idx[idx]
 
-        intensity_index = self.intensities[idx].replace('intensity_', '')
         velocity_index = self.velocities[idx].replace('velocities_', '')
         mag_index = self.magnetic_fields[idx].replace('B_', '')
         vz_index = self.vz[idx].replace('vz_', '')
 
-        if velocity_index != intensity_index:
-                raise ValueError("Input (I) - label data not corresponding: ", self.intensities[idx] + " "+ self.velocities[idx])
-        if mag_index != intensity_index:
+        if mag_index != velocity_index:
                 raise ValueError("Input (B) - label data not corresponding: ", self.magnetic_fields[idx] + " "+ self.velocities[idx])
-        if vz_index != intensity_index:
+        if vz_index != velocity_index:
                 raise ValueError("Input (vz) - label data not corresponding: ", self.vz[idx] + " "+ self.velocities[idx])
 
     def __getitem__(self, idx):
         """
-        Retrieve a data point and its corresponding label.
-
+        Get a data point from the dataset.
         Args:
             idx: Index of the data point to retrieve
-        Returns: 
-            I: Intensity data (tensor)
-            B: Magnetic field data (tensor)
-            vz: vz data (tensor)
-            vel: Velocity field data (tensor)
+        Returns:
+            Tuple of (magnetic field, vz, velocity) tensors
+        Raises:
+            ValueError: If the input and label data do not correspond
         """
 
         if self.test:
             idx = self.validation_idx[idx]
 
-        I = np.load(self.intensities_dir + "/"+ self.intensities[idx])
-        B = np.load(self.magnetic_fields_dir + "/"+ self.magnetic_fields[idx])
-        vz = np.load(self.vz_dir + "/"+ self.vz[idx])
-        vel = np.load(self.velocities_dir + "/"+ self.velocities[idx])
+        B = np.load(os.path.join(self.magnetic_fields_dir, self.magnetic_fields[idx]))
+        vz = np.load(os.path.join(self.vz_dir, self.vz[idx]))
+        vel = np.load(os.path.join(self.velocities_dir, self.velocities[idx]))
 
         self.check_indices(idx, self.test)
 
-        return I, B, vz, vel
+        return B, vz, vel
 
 class ResidualBlock(nn.Module):
     """
@@ -130,9 +110,6 @@ class ResidualBlock(nn.Module):
         self.out_channels = out_channels
         
     def forward(self, x):
-        """
-        Forward pass through the residual block.
-        """
         residual = x
         out = self.conv1(x)
         out = self.conv2(out)
@@ -141,9 +118,9 @@ class ResidualBlock(nn.Module):
     
 class DeepVel_net(nn.Module):
     """
-    Model definition for DeepVel, modified to also include magnetic field and vz as inputs.
+        Model definition for DeepVel, modified to take magnetic field and vz as inputs.
     """
-    def __init__(self, in_channels=6, out_channels=2, n_filters=32, blocks=20): #changed out_channels
+    def __init__(self, in_channels=4, out_channels=2, n_filters=32, blocks=20):
         super(DeepVel_net, self).__init__()
         #parameters
         self.n_filters = n_filters
@@ -151,10 +128,6 @@ class DeepVel_net(nn.Module):
         self.out_channels = out_channels
         self.blocks = blocks
         #Layers
-        self.conv_I_1 = nn.Sequential(nn.Conv2d(self.in_channels, self.n_filters, kernel_size = 3, stride=1, padding=1),
-                                       nn.BatchNorm2d(self.n_filters),
-                                       nn.ReLU()
-                                       )
         self.conv_B_1 = nn.Sequential(nn.Conv2d(self.in_channels, self.n_filters, kernel_size = 3, stride=1, padding=1),
                                        nn.BatchNorm2d(self.n_filters),
                                        nn.ReLU()
@@ -164,15 +137,13 @@ class DeepVel_net(nn.Module):
                                         nn.ReLU()
                                         )
         
-        self.residual1 = self.make_Reslayer(self.n_filters, self.blocks)
         self.residual2 = self.make_Reslayer(self.n_filters, self.blocks)
         self.residual3 = self.make_Reslayer(self.n_filters, self.blocks)
 
-        self.conv_I_2 = nn.Sequential(nn.Conv2d(self.n_filters, self.n_filters, kernel_size = 3, stride=1, padding=1), nn.BatchNorm2d(self.n_filters))
         self.conv_B_2 = nn.Sequential(nn.Conv2d(self.n_filters, self.n_filters, kernel_size = 3, stride=1, padding=1), nn.BatchNorm2d(self.n_filters))
         self.conv_vz_2 = nn.Sequential(nn.Conv2d(self.n_filters, self.n_filters, kernel_size = 3, stride=1, padding=1), nn.BatchNorm2d(self.n_filters))
 
-        self.conv3 = nn.Conv2d(3*self.n_filters, self.out_channels, kernel_size = 1, stride=1, padding=0)
+        self.conv3 = nn.Conv2d(2*self.n_filters, self.out_channels, kernel_size = 1, stride=1, padding=0)
 
     def make_Reslayer(self, out_channels, num_blocks, stride=1):
             """
@@ -182,7 +153,7 @@ class DeepVel_net(nn.Module):
                 num_blocks: Number of residual blocks to create
                 stride: Stride for the first block
             Returns:
-                nn.Sequential containing the residual blocks    
+                nn.Sequential containing the residual blocks
             """
             strides = [stride] + [1]*(num_blocks-1)
             layers = []
@@ -191,22 +162,15 @@ class DeepVel_net(nn.Module):
                 self.n_filters = out_channels
             return nn.Sequential(*layers)
 
-    def forward(self, I, B, vz):
+    def forward(self, B, vz):
         """
         Forward pass through the network.
         """
-        out_I = self.conv_I_1(I)
-        res_I = out_I
-
         out_B = self.conv_B_1(B)
         res_B = out_B
 
         out_vz = self.conv_vz_1(vz)
         res_vz = out_vz
-
-        out_I = self.residual1(out_I)
-        out_I = self.conv_I_2(out_I)
-        out_I += res_I
 
         out_B = self.residual2(out_B)
         out_B = self.conv_B_2(out_B)
@@ -216,7 +180,7 @@ class DeepVel_net(nn.Module):
         out_vz = self.conv_vz_2(out_vz)
         out_vz += res_vz
 
-        feat_ensemble = torch.cat((out_I, out_B, out_vz), dim=1) #myb dim 0
+        feat_ensemble = torch.cat((out_B, out_vz), dim=1)
         out = self.conv3(feat_ensemble)
 
         return out
@@ -224,37 +188,39 @@ class DeepVel_net(nn.Module):
 
 class DeepVel_run(object):
     """
-    Class for running the DeepVel model, modified to take three inputs: I, B and vz.
+    Class for running the DeepVel model, modified to take two inputs: B and vz.
     """
-    def __init__(self, batch, dataset_path, network_path, in_channels = 2, root = None,):
+    def __init__(self, batch, dataset_path, network_path, in_shape= (4, 128, 128), out_shape= (4, 128, 128), root = None, tau = None):
  
         self.root = root
         self.n_filters = 32     
         self.batch_size = batch
-        self.n_conv_layers = 20 
-        self.in_channels = in_channels
+        self.n_conv_layers = 20
+        self.tau = tau
+        self.in_shape = in_shape
+        self.out_shape = out_shape
         self.out_channels = 2
         self.lr = 1e-4
         self.network_path = network_path
-        self.dataset = dataset_deepVel(dataset_path, in_channels=self.in_channels, test_idx=None, test=False)
-        self.model = DeepVel_net(in_channels=self.in_channels, out_channels=self.out_channels, n_filters=self.n_filters, blocks=self.n_conv_layers).to(device)
+        self.dataset = dataset_deepVel(dataset_path, in_channels=self.in_shape[0], test_idx=None, test=False, tau= self.tau)
+        self.model = DeepVel_net(in_channels=self.in_shape[0], out_channels=self.out_shape[0], n_filters=self.n_filters, blocks=self.n_conv_layers).to(device)
+        if torch.cuda.is_available() and torch.cuda.device_count() > 1:
+            self.model = nn.DataParallel(self.model)
 
         if root:
-
-            self.dataset = dataset_deepVel(dataset_path, in_channels=self.in_channels, test_idx=None, test=False)
+            self.dataset = dataset_deepVel(dataset_path, in_channels=self.in_shape[0], test_idx=None, test=False, tau = self.tau)
             self.train_len = int(0.8*len(self.dataset))
             self.test_len = len(self.dataset) - self.train_len
 
             self.trainset, self.testset = random_split(self.dataset, [self.train_len, self.test_len])
 
-            self.trainloader = DataLoader(self.trainset, batch_size=self.batch_size, shuffle = True, num_workers = 0)
-            self.testloader = DataLoader(self.testset, batch_size=self.batch_size, shuffle = False, num_workers = 0)
+            self.trainloader = DataLoader(self.trainset, batch_size=self.batch_size, shuffle = True, num_workers = 4, pin_memory=True)
+            self.testloader = DataLoader(self.testset, batch_size=self.batch_size, shuffle = False, num_workers = 4, pin_memory=True)
 
-            #self.summary = summary(self.model, input_size = (self.in_channels, 128, 128), batch_size = self.batch_size) #this does not handle multiple inputs
+            # NOTE I commented out this line to avoid potential issues with torchsummary during testing:
+            self.summary = summary(self.model, input_data = (torch.randn(self.batch_size, self.in_shape[0], self.in_shape[1], self.in_shape[2]), torch.randn(self.batch_size, self.in_shape[0], self.in_shape[1], self.in_shape[2])), device=device)
 
-        #self.criterion = nn.MSELoss()
-        self.criterion = div_vor_loss
-        self.criterion = lambda pred, gt: div_vor_loss(pred, gt)
+        self.criterion = nn.MSELoss()
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.lr)
   
 
@@ -266,7 +232,7 @@ class DeepVel_run(object):
 
         Args:
             epochs : number of epochs in the training
-        
+
         """
 
         min_loss = torch.tensor(float('inf'))
@@ -275,12 +241,16 @@ class DeepVel_run(object):
 
         scheduler = optim.lr_scheduler.ExponentialLR(self.optimizer, gamma = 0.96)
 
+        with open(os.path.join(self.network_path.replace("checkpoints", ""), "architecture.txt"), "w") as f:
+            print("Writing architecture to file...", os.path.join(self.network_path.replace("checkpoints", ""), "architecture.txt"))
+            f.write(str(self.summary))
+
         for epoch in range(epochs):
             self.model.train()
             running_loss = 0.0
-            for batch_i, (I, B, vz, y) in enumerate(self.trainloader):
+            for batch_i, (B, vz, y) in enumerate(self.trainloader):
                 self.optimizer.zero_grad()
-                outputs = self.model(I.to(device), B.to(device), vz.to(device))
+                outputs = self.model(B.to(device), vz.to(device))
 
                 loss_tuple = self.criterion(outputs, y.to(device))
                 if isinstance(loss_tuple, tuple):
@@ -310,10 +280,10 @@ class DeepVel_run(object):
             val_acc_list = []
 
             self.model.eval()
-            for batch_i, (I, B, vz, y) in enumerate(self.testloader):
+            for batch_i, (B, vz, y) in enumerate(self.testloader):
                 with torch.no_grad():    
-                    output = self.model(I.to(device), B.to(device), vz.to(device))
-                      
+                    output = self.model(B.to(device), vz.to(device))
+
                 val_loss_tuple = self.criterion(output, y.to(device))
                 if isinstance(val_loss_tuple, tuple):
                     val_loss = val_loss_tuple[0]
@@ -334,7 +304,10 @@ class DeepVel_run(object):
             if is_best == True:
                 print("Best_model")      
                 min_loss = min(compare_loss, min_loss)
-                torch.save(self.model.state_dict(), self.network_path + '/DeepVel_torch_epoch_{}_{:.5f}.pt'.format(epoch,np.mean(val_loss_list)))
+                save_path = os.path.join(self.network_path, 'DeepVel_torch_epoch_{}_{:.5f}.pt'.format(epoch,np.mean(val_loss_list)))
+                model_state = self.model.module.state_dict() if isinstance(self.model, nn.DataParallel) else self.model.state_dict()
+                torch.save(model_state, save_path)
+                # torch.save(self.model.state_dict(), os.path.join(self.network_path, 'DeepVel_torch_epoch_{}_{:.5f}.pt'.format(epoch,np.mean(val_loss_list))))
             
         print('Finished Training')
 
@@ -342,13 +315,13 @@ class DeepVel_run(object):
         date_time = dt.strftime("%m_%d_%Y_%H_%M_%S")
         dict = OrderedDict()
         dict['root'] = self.root
-        dict['dataset_lenght'] = len(self.trainset)+len(self.trainset)
+        dict['dataset_length'] = len(self.trainset)+len(self.testset)
         dict['channels'] = self.n_filters
         dict['Number_epochs'] = epochs
         dict['Bach_size'] = self.batch_size
         dict['Optimizer_lr'] = self.lr
 
-        with open(self.network_path + '/deepvel_torch_train_params_{}.npy'.format(date_time), 'wb') as f:
+        with open(os.path.join(self.network_path, 'deepvel_torch_train_params_{}.npy'.format(date_time)), 'wb') as f:
         
             np.save(f, dict)
             np.save(f, save_losses)
@@ -363,13 +336,11 @@ class DeepVel_run(object):
                 x = x.unsqueeze(0)
             return x
          
-    def predict(self, I, B, vz, saved_model):
+    def predict(self, B, vz, saved_model):
         """
-        Predict using a DeepVel saved model with three inputs: I, B, vz.
+        Predict using a DeepVel saved model with two inputs: B, vz.
 
         Args:
-            I : Tensor or np.ndarray
-                Intensity input, shape [C, H, W] or [1, C, H, W]
             B : Tensor or np.ndarray
                 Magnetic field input, shape [C, H, W] or [1, C, H, W]
             vz : Tensor or np.ndarray
@@ -377,23 +348,25 @@ class DeepVel_run(object):
             saved_model: str
                 Path to trained model (.pt file)
         Returns:
-            output: Tensor
-                Predicted velocity field, shape [2, H, W]
-        Raises:
+            output : Tensor
+                Predicted velocity field, shape [out_channels, H, W]
+        Raises: 
             ValueError: If input dimensions are incorrect
         """
 
         model_weights = torch.load(saved_model, map_location=torch.device(device))
-        self.model.load_state_dict(model_weights)
+        if isinstance(self.model, nn.DataParallel):
+            self.model.module.load_state_dict(model_weights)
+        else:
+            self.model.load_state_dict(model_weights)
         self.model.eval()
 
-        I = self.to_tensor(I)
         B = self.to_tensor(B)
         vz = self.to_tensor(vz)
 
         start = time.time()
         with torch.no_grad():
-            output = self.model(I.to(device), B.to(device), vz.to(device))
+            output = self.model(B.to(device), vz.to(device))
         end = time.time()
         print("Prediction took {0} seconds...".format(end - start))
 
@@ -402,24 +375,18 @@ class DeepVel_run(object):
        
 if (__name__ == '__main__'):
 
-    main_root = "/dat/xenoss/"
-    ###### NOTE best version ######
+    #main_root = "/dat/xenoss/"
 
-    deepvel_net = DeepVel_run(root = main_root, in_channels=4, batch = 64, dataset_path = main_root + f'datasets_5x5_experiments/normalized/timestep_{4}/cropped/data_{128}x{128}', network_path = "hybrid_model/new_loss_std/checkpoints/")
-    deepvel_net.train(80)
+    ######### NOTE training multiheight models ########
+    main_root = "/home/xenoss/dat/"
+    tau_levels=[1e-1,1e-2,1e-3,1e-4,1e-5,1e-6]
+    taus = ["1e-1", "1e-2", "1e-3", "1e-4", "1e-5", "1e-6"]
+    # tau_levels=[1.0]
+    # taus = ["1.0"]
 
-    ###### NOTE training 5x5 experiments #####
-
-    # temporal_range = [2, 4, 6, 8, 10]
-    # spatial_range = [32, 48, 64, 96, 128]
-
-    # for t in temporal_range:
-    #     for s in spatial_range:
-    #         print(f"Training for timestep {t} and spatial size {s} x {s}")
-    #         # name = os.listdir(main_root + f'datasets_5x5_experiments/normalized/timestep_{t}/cropped/data_{s}x{s}/inputs/')[0]
-    #         # sample = np.load(main_root + f'datasets_5x5_experiments/normalized/timestep_{t}/cropped/data_{s}x{s}/inputs/' + name)
-    #         # print("Sample shape: ", sample.shape)
-    #         deepvel_net = DeepVel_run(root = main_root, in_channels=t, batch = 64, dataset_path = main_root + f'datasets_5x5_experiments/normalized/timestep_{t}/cropped/data_{s}x{s}', network_path = main_root + f'models_5x5_norm/timestep_{t}/{s}x{s}/')
-    #         deepvel_net.train(80)
-
-
+    for i, tau in enumerate(tau_levels):
+        print(f"Training for tau = {tau}")
+        network_path = os.path.join(main_root, f'models_multi_height/tau_{taus[i]}')
+        data_path = os.path.join(main_root, f'multi_height_data_new/final_dataset_multiheight/train')
+        deepvel_net = DeepVel_run(root = main_root, in_shape=(4, 128, 128), out_shape=(2, 128, 128), batch = 64, dataset_path = data_path, network_path = os.path.join(network_path, 'checkpoints'), tau=taus[i])
+        deepvel_net.train(100)

@@ -1,20 +1,15 @@
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader, random_split
-import h5py
 import os
-import random
 from torchinfo import summary
 import torch.optim as optim
 import sys
 from collections import OrderedDict
 from datetime import datetime
-import matplotlib.pyplot as plt
 import time
-import matplotlib
-from analysis_fn import div_vor_loss
+from metrics_and_plotting import ModelType
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -25,10 +20,9 @@ class dataset_deepVel(Dataset):
 
     Custom Dataset based on Dataloaders https://docs.pytorch.org/tutorials/beginner/basics/data_tutorial.html
     """ 
-    def __init__(self, dataset_path, test_idx = None, test = False, tau = None, train_on_B = False, cadence = 10):
-        print("Train on B is ", train_on_B)
-
-        self.train_on_B = train_on_B
+    def __init__(self, dataset_path, test_idx = None, test = False, tau = None, type = ModelType.DEEPVEL_I, cadence = 10):
+        
+        self.type = type
         self.intensities_dir = os.path.join(dataset_path, "inputs/I") if tau is None else os.path.join(dataset_path, f"inputs/I/tau_1.0")
         self.magnetic_fields_dir = os.path.join(dataset_path, "inputs/B") if tau is None else os.path.join(dataset_path, f"inputs/B/tau_{tau}")
         self.velocities_dir = os.path.join(dataset_path, "labels")  if tau is None else os.path.join(dataset_path, f"labels/tau_{tau}")
@@ -72,12 +66,12 @@ class dataset_deepVel(Dataset):
 
         velocity_index = self.velocities[idx].replace('velocities_', '')
         
-        if self.train_on_B == False:
+        if self.type == ModelType.DEEPVEL_I:
             intensity_index = self.intensities[idx].replace('intensity_', '')
             if velocity_index != intensity_index:
                     raise ValueError("Input (I) - label data not corresponding: ", self.intensities[idx] + " "+ self.velocities[idx])
 
-        if self.train_on_B:
+        if self.type == ModelType.DEEPVEL_B:
             magnetic_field_index = self.magnetic_fields[idx].replace('B_', '')
             if velocity_index != magnetic_field_index:
                     raise ValueError("Input (B) - label data not corresponding: ", self.magnetic_fields[idx] + " "+ self.velocities[idx])
@@ -96,7 +90,7 @@ class dataset_deepVel(Dataset):
         if self.test:
             idx = self.validation_idx[idx]
 
-        if self.train_on_B:
+        if self.type == ModelType.DEEPVEL_B:
             B_full = np.load(self.magnetic_fields_dir + "/"+ self.magnetic_fields[idx])
             if self.cadence == 30:
                 first_timestep = B_full[0]
@@ -121,8 +115,8 @@ class dataset_deepVel(Dataset):
         vel = torch.from_numpy(vel.astype(np.float32))
 
         self.check_indices(idx, self.test)
-        # print("input shape: ", B.shape if self.train_on_B else I.shape, " label shape: ", vel.shape)
-        if self.train_on_B:
+
+        if self.type == ModelType.DEEPVEL_B:
             return B, vel
         else:
             return I, vel
@@ -206,27 +200,28 @@ class DeepVel_run(object):
     """
     Class for running the DeepVel model.
     """
-    def __init__(self, batch, dataset_path, network_path, in_channels = 2, root = None, tau = None, train_on_B = False, cadence=10):
-        print("Train on B is ", train_on_B)
+    def __init__(self, batch, dataset_path, network_path, in_shape = (4, 128, 128), out_shape = (2, 128, 128), root = None, tau = None, type = ModelType.DEEPVEL_I, cadence=10):
+        
         self.root = root
         self.n_filters = 32     
         self.batch_size = batch
         self.n_conv_layers = 20 
-        self.in_channels = in_channels
-        self.out_channels = 2
+        self.in_shape = in_shape
+        self.out_shape = out_shape
         self.lr = 1e-4
         self.network_path = network_path
-        self.train_on_B = train_on_B
+        self.type = type
         self.cadence=cadence
         self.tau = tau
 
-        self.model = DeepVel_net(in_channels=self.in_channels, out_channels=self.out_channels, n_filters=self.n_filters, blocks=self.n_conv_layers).to(device)
+        self.model = DeepVel_net(in_channels=self.in_shape[0], out_channels=self.out_shape[0], n_filters=self.n_filters, blocks=self.n_conv_layers).to(device)
+
         if torch.cuda.is_available() and torch.cuda.device_count() > 1:
             self.model = nn.DataParallel(self.model)
 
         if root:
 
-            self.dataset = dataset_deepVel(dataset_path, test_idx = None, test = False, tau=self.tau, train_on_B = self.train_on_B, cadence=self.cadence)
+            self.dataset = dataset_deepVel(dataset_path, test_idx = None, test = False, tau=self.tau, type=self.type, cadence=self.cadence)
             self.train_len = int(0.8*len(self.dataset))
             self.test_len = len(self.dataset) - self.train_len
 
@@ -235,7 +230,7 @@ class DeepVel_run(object):
             self.trainloader = DataLoader(self.trainset, batch_size=self.batch_size, shuffle = True, num_workers = 0)
             self.testloader = DataLoader(self.testset, batch_size=self.batch_size, shuffle = False, num_workers = 0)
 
-            self.summary = summary(self.model, input_data = (torch.randn(self.batch_size, self.in_channels, 128, 128)), device=device)
+            self.summary = summary(self.model, input_data = (torch.randn(self.batch_size, self.in_shape[0], self.in_shape[1], self.in_shape[2])), device=device)
 
         self.criterion = nn.MSELoss()
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.lr)    
@@ -381,21 +376,15 @@ class DeepVel_run(object):
         if x.dim() == 3:
             x = x.unsqueeze(0)
 
-        #x = normalize_layerwise(x)
         start = time.time()
 
-
-    
         with torch.no_grad():    
             output = self.model(x.to(device))  
 
         end = time.time()
         print("Prediction took {0} seconds...".format(end-start))
 
-        #output = normalization(output, norm_file)
-        output = output.squeeze(0)
-        #output = normalize_layerwise(output)
-        
+        output = output.squeeze(0)        
         return output
        
 if (__name__ == '__main__'):
@@ -405,25 +394,15 @@ if (__name__ == '__main__'):
 
     network_path = os.path.join(main_root, f'models_benchmarking/cadence_30/DeepVel_I')
     data_path = os.path.join(main_root, f'multi_height_data_new/final_dataset_multiheight/train')
-    deepvel_net = DeepVel_run(root = main_root, in_channels=2, batch = 64, dataset_path = data_path, network_path = os.path.join(network_path, 'checkpoints'), tau="1.0", train_on_B=False, cadence=30)
+    deepvel_net = DeepVel_run(root = main_root, in_shape=(2, 128, 128), out_shape=(2, 128, 128), type=ModelType.DEEPVEL_I, batch = 64, dataset_path = data_path, network_path = os.path.join(network_path, 'checkpoints'), tau="1.0", cadence=30)
     deepvel_net.train(100)
 
     network_path = os.path.join(main_root, f'models_benchmarking/cadence_30/DeepVel_Bz/tau_1.0')
     data_path = os.path.join(main_root, f'multi_height_data_new/final_dataset_multiheight/train')
-    deepvel_net = DeepVel_run(root = main_root, in_channels=2, batch = 64, dataset_path = data_path, network_path = os.path.join(network_path, 'checkpoints'), tau="1.0", train_on_B=True,cadence=30)
+    deepvel_net = DeepVel_run(root = main_root, in_shape=(4, 128, 128), out_shape=(2, 128, 128),  type=ModelType.DEEPVEL_B, batch = 64, dataset_path = data_path, network_path = os.path.join(network_path, 'checkpoints'), tau="1.0", cadence=30)
     deepvel_net.train(100)
 
     network_path = os.path.join(main_root, f'models_benchmarking/cadence_30/DeepVel_Bz/tau_0.1')
     data_path = os.path.join(main_root, f'multi_height_data_new/final_dataset_multiheight/train')
-    deepvel_net = DeepVel_run(root = main_root, in_channels=2, batch = 64, dataset_path = data_path, network_path = os.path.join(network_path, 'checkpoints'), tau="1e-1", train_on_B=True, cadence=30)
+    deepvel_net = DeepVel_run(root = main_root, in_shape=(4, 128, 128), out_shape=(2, 128, 128),  type=ModelType.DEEPVEL_B, batch = 64, dataset_path = data_path, network_path = os.path.join(network_path, 'checkpoints'), tau="1e-1", cadence=30)
     deepvel_net.train(100)
-
-       
-    #### NOTE TESTING OF THE WHOLE MAP EXAMPLE ####
-
-    # deepvel_net = DeepVel_run(root = main_root, in_channels=6, batch = 64, dataset_path = main_root + f'datasets_5x5_experiments/timestep_{6}/cropped/data_{128}x{128}', network_path = main_root + f'models_5x5/timestep_{6}/{128}x{128}/')
-    # params_model = '/dat/xenoss/models_5x5/timestep_6/128x128/DeepVel_torch_epoch_79_0.14405.pt'
-    # #plot_test_full_map(8, deepvel_net, params_model, '/home/xenoss/data/kecman_project/DeepVel_3D_velocity/experiment25_test/', name = "experiment25_not_zoomed_in_full_map")
-    # plot_prediction_and_scatter_full_map_vertical(8, deepvel_net, params_model, '/home/xenoss/data/kecman_project/DeepVel_3D_velocity/experiment25_test/', name = "experiment25_not_zoomed_in_full_map", n_input_channels=6, write_metrics=True)
-
-  

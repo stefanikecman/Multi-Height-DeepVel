@@ -1,5 +1,4 @@
-import os
-import shutil
+import glob
 import muram as muram
 import numpy as np
 import torch
@@ -7,11 +6,8 @@ import matplotlib
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
 import torch.nn as nn
-from scipy import stats
-from prepare_data import file_naming, normalize_layerwise, denormalize_data
-from scipy.stats import linregress
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-from analysis_fn import get_divergence, get_vorticity, calculate_correlation, get_all_metrics
+from analysis_fn import get_divergence, get_vorticity, get_all_metrics
 from enum import Enum
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -24,6 +20,63 @@ class ModelType(Enum):
     STOKES_I = 5
     STOKES_V = 6
     STOKES_IV = 7
+
+def plot_train_val_losses(tau_levels, ckpts_path):
+    """
+    Method for plot_train_val_losses
+    
+    Args:
+        tau_levels: integers corresponding to tau levels, first one should always be intensity
+        ckpts_path: path where the checkpoints are stored
+    """
+    taus = [str(tau) for tau in tau_levels]
+    all_x = []
+    all_train = []
+    all_val = []
+
+    for i, tau in enumerate(tau_levels):
+        if i== 0: #this is intensity only model
+            model_glob = f"{ckpts_path}/DeepVel_I/checkpoints/*.npy"
+        else:
+            model_glob = f"{ckpts_path}/DeepVel_Bz/tau_{taus[i]}/checkpoints/*.npy"
+        path = glob.glob(model_glob)[0]
+        with open(path, "rb") as f:
+            _ = np.load(f, allow_pickle=True).item()
+            save_losses = np.load(f, allow_pickle=True)
+
+        save_losses = np.asarray(save_losses, dtype=float)
+        x = save_losses[:, 0]
+        train_rmse = np.sqrt(save_losses[:, 1])
+        val_rmse = np.sqrt(save_losses[:, 2])
+
+        all_x.append(x)
+        all_train.append(train_rmse)
+        all_val.append(val_rmse)
+
+    plt.figure(figsize=(14, 9))
+    plt.rcParams['font.size'] = 14
+
+    cmap = plt.get_cmap('tab10')
+    n = len(all_train)
+
+    for i in range(n):
+        x = np.asarray(all_x[i])
+        train = np.asarray(all_train[i])
+        val = np.asarray(all_val[i])
+        color = cmap(i % cmap.N)
+        if i == 0: label = "DeepVel I"
+        else: label = f"DeepVel Bz tau={taus[i]}"
+        plt.plot(x, train, color=color, linestyle='-', linewidth=2, label=f"{label} train")
+        plt.plot(x, val,   color=color, linestyle='--', linewidth=1.5, label=f"{label} val")
+
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss (RMSE)')
+    plt.title('Benchmarking Models: Train and Val Loss Curves')
+    plt.legend(loc='upper right', fontsize='small', ncol=2)
+    plt.grid(True)
+    out_path = '/home/xenoss/dat/models_benchmarking/benchmarking_training_all_combined.png'
+    plt.savefig(out_path, bbox_inches='tight', dpi=200)
+    plt.close()
 
 def load_data_based_on_model_type(dataset_path, n_input_channels, model_type: ModelType, tau = None):
     """

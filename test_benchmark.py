@@ -1,21 +1,10 @@
 import numpy as np
 import torch
-import torch.nn as nn
-import h5py
 import os
-import random
-import torch.optim as optim
-import sys
-from collections import OrderedDict
-from datetime import datetime
-import matplotlib.pyplot as plt
-import time
-import matplotlib
 import csv
+from collections import OrderedDict
 from deepvel_torch_benchmarking import DeepVel_run
 import pandas as pd
-import seaborn as sb
-from scipy.stats import norm
 from analysis_fn import get_all_metrics, get_divergence, get_vorticity
 from metrics_and_plotting import ModelType
 
@@ -209,56 +198,5 @@ for i, ckpt in enumerate(checkpoints): # first I, second Bz tau=1.0, third Bz ta
     else:
         csv_path_tau = os.path.join(csv_dir, f'Bz_metrics_tau_{taus[i]}.csv')
     df_tau.to_csv(csv_path_tau, index=False)
-    
-   
 
-############### NOTE TESTING DEEPVEL I ON THE PROJECT'S TESTSET ################
-# test_project_root = "/home/xenoss/dat/datasets_5x5_experiments/main_dataset_test/test_4x128x128/"
-# inputs = os.listdir(os.path.join(test_project_root, "inputs/"))
-# inputs.sort()
-# outputs = os.listdir(os.path.join(test_project_root, "labels/"))
-# outputs.sort()
-
-# deepvel_net = DeepVel_run(root = main_root, in_channels=4, batch = 64, dataset_path = data_path, network_path = "/home/xenoss/dat/models_benchmarking/DeepVel_I/checkpoints/", tau="1.0", train_on_B=False)
-# params_model = "/home/xenoss/dat/models_benchmarking/DeepVel_I/checkpoints/DeepVel_torch_epoch_99_0.14751.pt"
-
-# for i in enumerate(inputs):
-#     input_file = os.path.join(test_project_root, "inputs/", inputs[i[0]])
-#     output_file = os.path.join(test_project_root, "labels/", outputs[i[0]])
-
-#     input_data = np.load(input_file)
-#     output_data = np.load(output_file)
-#     input_data = torch.from_numpy(input_data.astype(np.float32))
-#     output_data = torch.from_numpy(output_data.astype(np.float32))
-#     velocity_pred = deepvel_net.predict(input_data, params_model)
-
-#     divergence_orig = get_divergence(output_data[0], output_data[1])
-#     divergence_pred = get_divergence(velocity_pred[0], velocity_pred[1])
-#     vorticity_orig = get_vorticity(output_data[0], output_data[1])
-#     vorticity_pred = get_vorticity(velocity_pred[0], velocity_pred[1])
-
-#     mse_l, rmse_l, pearson0, pearson1, slope_x, slope_y = get_all_metrics(output_data, velocity_pred).values()
-#     mse_d, rmse_d, pearson_d, slope_d = get_all_metrics(divergence_orig, divergence_pred, is_divergence=True).values()
-#     mse_v, rmse_v, pearson_v, slope_v = get_all_metrics(vorticity_orig, vorticity_pred, is_divergence=True).values()
-
-#     metrics_by_tau["Test_"+str(i)] = OrderedDict({
-#         "mse_l": mse_l,
-#         "rmse_l": rmse_l,
-#         "pearson0": pearson0,
-#         "pearson1": pearson1,
-#         "slope_x": slope_x,
-#         "slope_y": slope_y,
-#         "mse_d": mse_d,
-#         "rmse_d": rmse_d,
-#         "pearson_d": pearson_d,
-#         "slope_d": slope_d,
-#         "mse_v": mse_v,
-#         "rmse_v": rmse_v,
-#         "pearson_v": pearson_v,
-#         "slope_v": slope_v
-#     })
-# df_metrics = pd.DataFrame.from_dict(metrics_by_tau, orient='index')
-# csv_path = os.path.join('/home/xenoss/dat/models_benchmarking', 'metrics_deepvel_I.csv')
-# df_metrics.to_csv(csv_path)
-# print(f"Saved metrics summary to {csv_path}")
 

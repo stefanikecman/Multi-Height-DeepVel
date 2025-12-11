@@ -1,21 +1,10 @@
 import numpy as np
 import torch
-import torch.nn as nn
-import h5py
 import os
-import random
-import torch.optim as optim
-import sys
 from collections import OrderedDict
-from datetime import datetime
-import matplotlib.pyplot as plt
-import time
-import matplotlib
 import csv
-from hybrid_deepvel_torch_v2 import DeepVel_run as DeepVel_run_hybrid2
+from hybrid_deepvel_torch import DeepVel_run as DeepVel_run_hybrid2
 import pandas as pd
-import seaborn as sb
-from scipy.stats import norm
 from analysis_fn import get_all_metrics, get_divergence, get_vorticity
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
