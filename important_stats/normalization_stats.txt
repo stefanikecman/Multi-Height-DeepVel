@@ -1,0 +1,73 @@
+Tau level: 1.0
+B mean (train): -0.008123267441987991, B std (train): 143.59490966796875
+B mean (test): 0.0043985433876514435, B std (test): 136.7486572265625
+vz mean (train): -8597.4609375, vz std (train): 244247.9375
+vz mean (test): -8126.0458984375, vz std (test): 244861.71875
+vel_x mean (train): -3014.55419921875, vel_x std (train): 230040.6875
+vel_x mean (test): -2078.321533203125, vel_x std (test): 232136.484375
+vel_y mean (train): 6377.31298828125, vel_y std (train): 228975.734375
+vel_y mean (test): 3573.025634765625, vel_y std (test): 230852.375
+--------------------------------------------------
+Tau level: 1e-1
+B mean (train): -0.04172532260417938, B std (train): 105.45242309570312
+B mean (test): -0.013565273024141788, B std (test): 100.55445098876953
+vz mean (train): -10088.875, vz std (train): 133917.15625
+vz mean (test): -9704.443359375, vz std (test): 134275.3125
+vel_x mean (train): -3272.577880859375, vel_x std (train): 220315.84375
+vel_x mean (test): -1068.5284423828125, vel_x std (test): 223613.75
+vel_y mean (train): 5250.86669921875, vel_y std (train): 219459.953125
+vel_y mean (test): 4305.888671875, vel_y std (test): 220306.984375
+--------------------------------------------------
+Tau level: 1e-2
+B mean (train): -0.05089988932013512, B std (train): 79.79619598388672
+B mean (test): -0.018686244264245033, B std (test): 76.73197937011719
+vz mean (train): -7069.23388671875, vz std (train): 82942.2890625
+vz mean (test): -6744.021484375, vz std (test): 82845.828125
+vel_x mean (train): -2903.778076171875, vel_x std (train): 168491.140625
+vel_x mean (test): 2579.50732421875, vel_x std (test): 171844.03125
+vel_y mean (train): 6053.2744140625, vel_y std (train): 168253.453125
+vel_y mean (test): 4552.302734375, vel_y std (test): 169797.921875
+--------------------------------------------------
+Tau level: 1e-3
+B mean (train): -0.03878980129957199, B std (train): 56.8968620300293
+B mean (test): -0.010142063722014427, B std (test): 55.0655632019043
+vz mean (train): -4098.609375, vz std (train): 88476.5
+vz mean (test): -3659.1259765625, vz std (test): 87383.828125
+vel_x mean (train): -2045.6009521484375, vel_x std (train): 128639.75
+vel_x mean (test): 2779.994140625, vel_x std (test): 130505.2578125
+vel_y mean (train): 5417.70068359375, vel_y std (train): 129194.484375
+vel_y mean (test): 5230.796875, vel_y std (test): 126075.28125
+--------------------------------------------------
+Tau level: 1e-4
+B mean (train): -0.020056797191500664, B std (train): 40.7763557434082
+B mean (test): 0.005635771434754133, B std (test): 39.692813873291016
+vz mean (train): -3945.75, vz std (train): 118526.234375
+vz mean (test): -3294.150634765625, vz std (test): 117074.7890625
+vel_x mean (train): -2821.39453125, vel_x std (train): 143613.515625
+vel_x mean (test): -164.8361358642578, vel_x std (test): 143405.125
+vel_y mean (train): 4506.07373046875, vel_y std (train): 143150.46875
+vel_y mean (test): 5951.0673828125, vel_y std (test): 140374.46875
+--------------------------------------------------
+Tau level: 1e-5
+B mean (train): -0.018329093232750893, B std (train): 29.62902069091797
+B mean (test): -0.0010279607959091663, B std (test): 28.93956756591797
+vz mean (train): -6922.771484375, vz std (train): 175104.515625
+vz mean (test): -6273.4482421875, vz std (test): 173472.140625
+vel_x mean (train): -2572.064697265625, vel_x std (train): 191484.015625
+vel_x mean (test): -1420.8521728515625, vel_x std (test): 190091.671875
+vel_y mean (train): 4996.85302734375, vel_y std (train): 191550.578125
+vel_y mean (test): 5752.1806640625, vel_y std (test): 189190.5
+--------------------------------------------------
+Tau level: 1e-6
+B mean (train): -0.020866986364126205, B std (train): 20.38275146484375
+B mean (test): 0.003525571897625923, B std (test): 19.967233657836914
+vz mean (train): -25130.119140625, vz std (train): 270077.0
+vz mean (test): -25073.138671875, vz std (test): 268125.0625
+vel_x mean (train): -3447.911865234375, vel_x std (train): 278371.65625
+vel_x mean (test): -2687.150634765625, vel_x std (test): 278698.78125
+vel_y mean (train): 6313.82568359375, vel_y std (train): 279016.15625
+vel_y mean (test): 5750.087890625, vel_y std (test): 278024.6875
+--------------------------------------------------
+Intensity mean (train): 398512288.0, Intensity std (train): 82876504.0
+Intensity mean (test): 398279008.0, Intensity std (test): 83060624.0
+--------------------------------------------------
