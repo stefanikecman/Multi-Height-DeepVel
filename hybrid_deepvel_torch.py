@@ -1,3 +1,4 @@
+from metrics_and_plotting import ModelType
 import numpy as np
 import torch
 import torch.nn as nn
@@ -15,25 +16,34 @@ from torchinfo import summary
 
 class dataset_deepVel(Dataset): 
     """
-    Dataset class for DeepVel, modified to take two inputs: B and vz.
+    Dataset class for DeepVel, modified to take two inputs: B and vz or I and vz.
     """ 
-    def __init__(self, dataset_path, in_channels, test_idx = None, test = False, tau = None):
+    def __init__(self, dataset_path, in_channels = 4, test_idx = None, test = False, tau = None, type = ModelType.HYBRID_Bvz):
+        
         self.in_channels = in_channels
         self.magnetic_fields_dir = os.path.join(dataset_path, "inputs/B") if tau is None else os.path.join(dataset_path, f"inputs/B/tau_{tau}")
+        self.intensities_dir = os.path.join(dataset_path, "inputs/I") if tau is None else os.path.join(dataset_path, f"inputs/I/tau_{tau}")
         self.vz_dir = os.path.join(dataset_path, "inputs/vz") if tau is None else os.path.join(dataset_path, f"inputs/vz/tau_{tau}")
         self.velocities_dir = os.path.join(dataset_path, "labels") if tau is None else os.path.join(dataset_path, f"labels/tau_{tau}")
+        self.type = type
 
         velocities = os.listdir(self.velocities_dir)
         magnetic_fields = os.listdir(self.magnetic_fields_dir)
+        intensities = os.listdir(self.intensities_dir)
         vz = os.listdir(self.vz_dir)
-        print("loading data from : ", self.velocities_dir, self.magnetic_fields_dir, self.vz_dir)
+        if type == ModelType.HYBRID_Bvz:
+            print("loading data from : ", self.velocities_dir, self.magnetic_fields_dir, self.vz_dir)
+        elif type == ModelType.HYBRID_Ivz:
+            print("loading data from : ", self.velocities_dir, self.intensities_dir, self.vz_dir)
 
         velocities.sort()
         magnetic_fields.sort()
+        intensities.sort()
         vz.sort()
 
         self.velocities = velocities
         self.magnetic_fields = magnetic_fields
+        self.intensities = intensities
         self.vz = vz
 
         self.n_train_datapoints = len(self.vz)
@@ -63,11 +73,18 @@ class dataset_deepVel(Dataset):
             idx = self.validation_idx[idx]
 
         velocity_index = self.velocities[idx].replace('velocities_', '')
-        mag_index = self.magnetic_fields[idx].replace('B_', '')
         vz_index = self.vz[idx].replace('vz_', '')
 
-        if mag_index != velocity_index:
-                raise ValueError("Input (B) - label data not corresponding: ", self.magnetic_fields[idx] + " "+ self.velocities[idx])
+        if self.type == ModelType.HYBRID_Bvz:
+            mag_index = self.magnetic_fields[idx].replace('B_', '')
+            if mag_index != velocity_index:
+                    raise ValueError("Input (B) - label data not corresponding: ", self.magnetic_fields[idx] + " "+ self.velocities[idx])
+        
+        elif self.type == ModelType.HYBRID_Ivz:
+            intensity_index = self.intensities[idx].replace('intensity_', '')
+            if intensity_index != velocity_index:
+                raise ValueError("Input (I) - label data not corresponding: ", self.intensities[idx] + " "+ self.velocities[idx])
+            
         if vz_index != velocity_index:
                 raise ValueError("Input (vz) - label data not corresponding: ", self.vz[idx] + " "+ self.velocities[idx])
 
@@ -77,7 +94,8 @@ class dataset_deepVel(Dataset):
         Args:
             idx: Index of the data point to retrieve
         Returns:
-            Tuple of (magnetic field, vz, velocity) tensors
+            Tuple of (magnetic field, vz, velocity) tensors if type is HYBRID_Bvz
+            or (intensity, vz, velocity) tensors if type is HYBRID_Ivz
         Raises:
             ValueError: If the input and label data do not correspond
         """
@@ -85,13 +103,23 @@ class dataset_deepVel(Dataset):
         if self.test:
             idx = self.validation_idx[idx]
 
-        B = np.load(os.path.join(self.magnetic_fields_dir, self.magnetic_fields[idx]))
-        vz = np.load(os.path.join(self.vz_dir, self.vz[idx]))
-        vel = np.load(os.path.join(self.velocities_dir, self.velocities[idx]))
+        if self.type == ModelType.HYBRID_Ivz:
+            I = np.load(os.path.join(self.intensities_dir, self.intensities[idx]))
+            vz = np.load(os.path.join(self.vz_dir, self.vz[idx]))
+            vel = np.load(os.path.join(self.velocities_dir, self.velocities[idx]))
 
-        self.check_indices(idx, self.test)
+            self.check_indices(idx, self.test)
 
-        return B, vz, vel
+            return I, vz, vel
+        
+        elif self.type == ModelType.HYBRID_Bvz:
+            B = np.load(os.path.join(self.magnetic_fields_dir, self.magnetic_fields[idx]))
+            vz = np.load(os.path.join(self.vz_dir, self.vz[idx]))
+            vel = np.load(os.path.join(self.velocities_dir, self.velocities[idx]))
+
+            self.check_indices(idx, self.test)
+
+            return B, vz, vel
 
 class ResidualBlock(nn.Module):
     """
@@ -118,9 +146,9 @@ class ResidualBlock(nn.Module):
     
 class DeepVel_net(nn.Module):
     """
-        Model definition for DeepVel, modified to take magnetic field and vz as inputs.
+        Model definition for DeepVel, modified to take magnetic field and vz as inputs or intensity and vz as inputs.
     """
-    def __init__(self, in_channels=4, out_channels=2, n_filters=32, blocks=20):
+    def __init__(self, in_channels, out_channels, n_filters=32, blocks=20):
         super(DeepVel_net, self).__init__()
         #parameters
         self.n_filters = n_filters
@@ -128,11 +156,11 @@ class DeepVel_net(nn.Module):
         self.out_channels = out_channels
         self.blocks = blocks
         #Layers
-        self.conv_B_1 = nn.Sequential(nn.Conv2d(self.in_channels, self.n_filters, kernel_size = 3, stride=1, padding=1),
+        self.conv_in1_1 = nn.Sequential(nn.Conv2d(self.in_channels, self.n_filters, kernel_size = 3, stride=1, padding=1),
                                        nn.BatchNorm2d(self.n_filters),
                                        nn.ReLU()
                                        )
-        self.conv_vz_1 = nn.Sequential(nn.Conv2d(self.in_channels, self.n_filters, kernel_size = 3, stride=1, padding=1),
+        self.conv_in2_1 = nn.Sequential(nn.Conv2d(self.in_channels, self.n_filters, kernel_size = 3, stride=1, padding=1),
                                         nn.BatchNorm2d(self.n_filters),
                                         nn.ReLU()
                                         )
@@ -140,8 +168,8 @@ class DeepVel_net(nn.Module):
         self.residual2 = self.make_Reslayer(self.n_filters, self.blocks)
         self.residual3 = self.make_Reslayer(self.n_filters, self.blocks)
 
-        self.conv_B_2 = nn.Sequential(nn.Conv2d(self.n_filters, self.n_filters, kernel_size = 3, stride=1, padding=1), nn.BatchNorm2d(self.n_filters))
-        self.conv_vz_2 = nn.Sequential(nn.Conv2d(self.n_filters, self.n_filters, kernel_size = 3, stride=1, padding=1), nn.BatchNorm2d(self.n_filters))
+        self.conv_in1_2 = nn.Sequential(nn.Conv2d(self.n_filters, self.n_filters, kernel_size = 3, stride=1, padding=1), nn.BatchNorm2d(self.n_filters))
+        self.conv_in2_2 = nn.Sequential(nn.Conv2d(self.n_filters, self.n_filters, kernel_size = 3, stride=1, padding=1), nn.BatchNorm2d(self.n_filters))
 
         self.conv3 = nn.Conv2d(2*self.n_filters, self.out_channels, kernel_size = 1, stride=1, padding=0)
 
@@ -162,25 +190,25 @@ class DeepVel_net(nn.Module):
                 self.n_filters = out_channels
             return nn.Sequential(*layers)
 
-    def forward(self, B, vz):
+    def forward(self, in1, in2):
         """
         Forward pass through the network.
         """
-        out_B = self.conv_B_1(B)
-        res_B = out_B
+        out_in1 = self.conv_in1_1(in1)
+        res_in1 = out_in1
 
-        out_vz = self.conv_vz_1(vz)
-        res_vz = out_vz
+        out_in2 = self.conv_in2_1(in2)
+        res_in2 = out_in2
 
-        out_B = self.residual2(out_B)
-        out_B = self.conv_B_2(out_B)
-        out_B += res_B
+        out_in1 = self.residual2(out_in1)
+        out_in1 = self.conv_in1_2(out_in1)
+        out_in1 += res_in1
 
-        out_vz = self.residual3(out_vz)
-        out_vz = self.conv_vz_2(out_vz)
-        out_vz += res_vz
+        out_in2 = self.residual3(out_in2)
+        out_in2 = self.conv_in2_2(out_in2)
+        out_in2 += res_in2
 
-        feat_ensemble = torch.cat((out_B, out_vz), dim=1)
+        feat_ensemble = torch.cat((out_in1, out_in2), dim=1)
         out = self.conv3(feat_ensemble)
 
         return out
@@ -188,9 +216,9 @@ class DeepVel_net(nn.Module):
 
 class DeepVel_run(object):
     """
-    Class for running the DeepVel model, modified to take two inputs: B and vz.
+    Class for running the DeepVel model, modified to take two inputs: B and vz or I and vz.
     """
-    def __init__(self, batch, dataset_path, network_path, in_shape= (4, 128, 128), out_shape= (4, 128, 128), root = None, tau = None):
+    def __init__(self, batch, dataset_path, network_path, in_shape= (4, 128, 128), out_shape= (2, 128, 128), root = None, tau = None, type = ModelType.HYBRID_Bvz):
  
         self.root = root
         self.n_filters = 32     
@@ -199,16 +227,16 @@ class DeepVel_run(object):
         self.tau = tau
         self.in_shape = in_shape
         self.out_shape = out_shape
-        self.out_channels = 2
         self.lr = 1e-4
+        self.type = type
         self.network_path = network_path
-        self.dataset = dataset_deepVel(dataset_path, in_channels=self.in_shape[0], test_idx=None, test=False, tau= self.tau)
+        # self.dataset = dataset_deepVel(dataset_path, in_channels=self.in_shape[0], test_idx=None, test=False, tau= self.tau, type=self.type)
         self.model = DeepVel_net(in_channels=self.in_shape[0], out_channels=self.out_shape[0], n_filters=self.n_filters, blocks=self.n_conv_layers).to(device)
         if torch.cuda.is_available() and torch.cuda.device_count() > 1:
             self.model = nn.DataParallel(self.model)
 
         if root:
-            self.dataset = dataset_deepVel(dataset_path, in_channels=self.in_shape[0], test_idx=None, test=False, tau = self.tau)
+            self.dataset = dataset_deepVel(dataset_path, in_channels=self.in_shape[0], test_idx=None, test=False, tau = self.tau, type=self.type)
             self.train_len = int(0.8*len(self.dataset))
             self.test_len = len(self.dataset) - self.train_len
 
@@ -223,7 +251,6 @@ class DeepVel_run(object):
         self.criterion = nn.MSELoss()
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.lr)
   
-
 
     def train(self, epochs):
 
@@ -248,9 +275,9 @@ class DeepVel_run(object):
         for epoch in range(epochs):
             self.model.train()
             running_loss = 0.0
-            for batch_i, (B, vz, y) in enumerate(self.trainloader):
+            for batch_i, (in1, in2, y) in enumerate(self.trainloader):
                 self.optimizer.zero_grad()
-                outputs = self.model(B.to(device), vz.to(device))
+                outputs = self.model(in1.to(device), in2.to(device))
 
                 loss_tuple = self.criterion(outputs, y.to(device))
                 if isinstance(loss_tuple, tuple):
@@ -280,9 +307,9 @@ class DeepVel_run(object):
             val_acc_list = []
 
             self.model.eval()
-            for batch_i, (B, vz, y) in enumerate(self.testloader):
+            for batch_i, (in1, in2, y) in enumerate(self.testloader):
                 with torch.no_grad():    
-                    output = self.model(B.to(device), vz.to(device))
+                    output = self.model(in1.to(device), in2.to(device))
 
                 val_loss_tuple = self.criterion(output, y.to(device))
                 if isinstance(val_loss_tuple, tuple):
@@ -336,15 +363,15 @@ class DeepVel_run(object):
                 x = x.unsqueeze(0)
             return x
          
-    def predict(self, B, vz, saved_model):
+    def predict(self, in1, in2, saved_model):
         """
-        Predict using a DeepVel saved model with two inputs: B, vz.
+        Predict using a DeepVel saved model with two inputs: B, vz or I, vz.
 
         Args:
-            B : Tensor or np.ndarray
-                Magnetic field input, shape [C, H, W] or [1, C, H, W]
-            vz : Tensor or np.ndarray
-                vz input, shape [C, H, W] or [1, C, H, W]
+            in1 : Tensor or np.ndarray
+                First input, I or B, shape [C, H, W] or [1, C, H, W]
+            in2 : Tensor or np.ndarray
+                Second input, vz, shape [C, H, W] or [1, C, H, W]
             saved_model: str
                 Path to trained model (.pt file)
         Returns:
@@ -361,12 +388,12 @@ class DeepVel_run(object):
             self.model.load_state_dict(model_weights)
         self.model.eval()
 
-        B = self.to_tensor(B)
-        vz = self.to_tensor(vz)
+        in1 = self.to_tensor(in1)
+        in2 = self.to_tensor(in2)
 
         start = time.time()
         with torch.no_grad():
-            output = self.model(B.to(device), vz.to(device))
+            output = self.model(in1.to(device), in2.to(device))
         end = time.time()
         print("Prediction took {0} seconds...".format(end - start))
 
@@ -379,14 +406,14 @@ if (__name__ == '__main__'):
 
     ######### NOTE training multiheight models ########
     main_root = "/home/xenoss/dat/"
-    tau_levels=[1e-1,1e-2,1e-3,1e-4,1e-5,1e-6]
-    taus = ["1e-1", "1e-2", "1e-3", "1e-4", "1e-5", "1e-6"]
-    # tau_levels=[1.0]
-    # taus = ["1.0"]
+    # tau_levels=[1e-1,1e-2,1e-3,1e-4]
+    # taus = ["1e-1", "1e-2", "1e-3", "1e-4"]
+    tau_levels=[1.0]
+    taus = ["1.0"]
 
     for i, tau in enumerate(tau_levels):
         print(f"Training for tau = {tau}")
-        network_path = os.path.join(main_root, f'models_multi_height/tau_{taus[i]}')
+        network_path = os.path.join(main_root, f'models_multi_height/Hybrid_I_vz/tau_{taus[i]}')
         data_path = os.path.join(main_root, f'multi_height_data_new/final_dataset_multiheight/train')
-        deepvel_net = DeepVel_run(root = main_root, in_shape=(4, 128, 128), out_shape=(2, 128, 128), batch = 64, dataset_path = data_path, network_path = os.path.join(network_path, 'checkpoints'), tau=taus[i])
+        deepvel_net = DeepVel_run(root = main_root, in_shape=(4, 128, 128), out_shape=(2, 128, 128), batch = 64, dataset_path = data_path, network_path = os.path.join(network_path, 'checkpoints'), tau=taus[i], type=ModelType.HYBRID_Ivz)
         deepvel_net.train(100)

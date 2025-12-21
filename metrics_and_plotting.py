@@ -1,4 +1,5 @@
 import glob
+import os
 import muram as muram
 import numpy as np
 import torch
@@ -20,6 +21,8 @@ class ModelType(Enum):
     STOKES_I = 5
     STOKES_V = 6
     STOKES_IV = 7
+    DEEPVEL_Vz = 8
+    HYBRID_Ivz = 9
 
 def plot_train_val_losses(tau_levels, ckpts_path):
     """
@@ -90,37 +93,37 @@ def load_data_based_on_model_type(dataset_path, n_input_channels, model_type: Mo
         "stokes_I": None,
         "stokes_V": None
     }
-    if model_type == ModelType.HYBRID_IBvz or model_type== ModelType.DEEPVEL_I:
+    if model_type == ModelType.HYBRID_IBvz or model_type== ModelType.DEEPVEL_I or model_type== ModelType.HYBRID_Ivz:
         if tau is not None:
-            inputs["intensity"] = np.load(dataset_path + f"intensities_{tau}.npy")
+            inputs["intensity"] = np.load(os.path.join(dataset_path, f"intensities_tau_{tau}.npy"))
         else:
-            inputs["intensity"] = np.load(dataset_path + f"intensities_tau_{n_input_channels}.npy")
+            inputs["intensity"] = np.load(os.path.join(dataset_path, f"intensities_tau_{n_input_channels}.npy"))
 
 
     if model_type == ModelType.HYBRID_Bvz or model_type== ModelType.DEEPVEL_B or model_type== ModelType.HYBRID_IBvz:
         if tau is not None:
-            inputs["B"] = np.load(dataset_path + f"B_tau_{tau}.npy")
+            inputs["B"] = np.load(os.path.join(dataset_path, f"B_tau_{tau}.npy"))
             
         else:
-            inputs["B"] = np.load(dataset_path + f"B_{n_input_channels}.npy")
+            inputs["B"] = np.load(os.path.join(dataset_path, f"B_{n_input_channels}.npy"))
             
-    if model_type == ModelType.HYBRID_Bvz or model_type== ModelType.HYBRID_IBvz:
+    if model_type == ModelType.HYBRID_Bvz or model_type== ModelType.HYBRID_IBvz  or model_type== ModelType.DEEPVEL_Vz or model_type== ModelType.HYBRID_Ivz:
         if tau is not None:
-            inputs["vz"] = np.load(dataset_path + f"vz_tau_{tau}.npy")
+            inputs["vz"] = np.load(os.path.join(dataset_path, f"vz_tau_{tau}.npy"))
         else:
-            inputs["vz"] = np.load(dataset_path + f"vz_{n_input_channels}.npy")
+            inputs["vz"] = np.load(os.path.join(dataset_path, f"vz_{n_input_channels}.npy"))
 
     if model_type == ModelType.STOKES_I or model_type == ModelType.STOKES_IV:
         if tau is None:
-            inputs["stokes_I"] = np.load(dataset_path + f"stokes_I_{n_input_channels}.npy")
+            inputs["stokes_I"] = np.load(os.path.join(dataset_path, f"stokes_I_{n_input_channels}.npy"))
         else:
             pass
 
     if model_type == ModelType.STOKES_V or model_type == ModelType.STOKES_IV:
         if tau is None:
-            inputs["stokes_V"] = np.load(dataset_path + f"stokes_V_{n_input_channels}.npy")
+            inputs["stokes_V"] = np.load(os.path.join(dataset_path, f"stokes_V_{n_input_channels}.npy"))
         else:
-            inputs["stokes_V"] = np.load(dataset_path + f"stokes_V_{tau}.npy")
+            inputs["stokes_V"] = np.load(os.path.join(dataset_path, f"stokes_V_{tau}.npy"))
 
     return inputs
 
@@ -152,12 +155,11 @@ def load_data_and_get_predictions(deepvel_object, params_model, dataset_path, n_
     inputs = load_data_based_on_model_type(dataset_path, n_input_channels, model_type, tau)
 
     intensity, B, vz, stokes_I, stokes_V = inputs["intensity"], inputs["B"], inputs["vz"], inputs["stokes_I"], inputs["stokes_V"]
-    print("Loaded data shapes:", stokes_V.shape)
-    print("Loaded data shapes:", stokes_I.shape)
+
     if tau is not None:
-        velocity_full_map = np.load(dataset_path + f"velocities_tau_{tau}.npy")
+        velocity_full_map = np.load(os.path.join(dataset_path, f"velocities_tau_{tau}.npy"))
     else:
-        velocity_full_map = np.load(dataset_path + f"velocities_{n_input_channels}.npy")
+        velocity_full_map = np.load(os.path.join(dataset_path, f"velocities_{n_input_channels}.npy"))
 
     if zoomed_in_size != None:
         #plot the central part zoomed in to that size
@@ -201,6 +203,9 @@ def load_data_and_get_predictions(deepvel_object, params_model, dataset_path, n_
     if model_type == ModelType.HYBRID_IBvz:
         velocity_pred = deepvel_object.predict(intensity_to_plot, B_to_plot, vz_to_plot, params_model)
 
+    elif model_type == ModelType.HYBRID_Ivz:
+        velocity_pred = deepvel_object.predict(intensity_to_plot, vz_to_plot, params_model)
+
     elif model_type == ModelType.HYBRID_Bvz:
         velocity_pred = deepvel_object.predict(B_to_plot, vz_to_plot, params_model)
 
@@ -209,6 +214,10 @@ def load_data_and_get_predictions(deepvel_object, params_model, dataset_path, n_
 
     elif model_type == ModelType.DEEPVEL_I:
         velocity_pred = deepvel_object.predict(intensity_to_plot, params_model)
+    
+    elif model_type == ModelType.DEEPVEL_Vz:
+        print("Predicting Vz only")
+        velocity_pred = deepvel_object.predict(vz_to_plot, params_model)
 
     elif model_type == ModelType.STOKES_I:
         velocity_pred = deepvel_object.predict(stokes_I_to_plot, params_model)
@@ -365,9 +374,9 @@ def plot_predictions(input_gt, vel_gt, vel_pred, path_save, filename, plot_inten
 
     plt.tight_layout()
     if arrows:
-        plt.savefig(path_save + filename + '_arrows.png', bbox_inches='tight')
+        plt.savefig(os.path.join(path_save, filename + '_arrows.png'), bbox_inches='tight')
     else:
-        plt.savefig(path_save + filename + '.png', bbox_inches='tight')
+        plt.savefig(os.path.join(path_save, filename + '.png'), bbox_inches='tight')
     plt.close()
 
 def plot_scatter_plot (original_velocity, predicted_velocity, path_save, filename, plotting_dim = None, zoom_out = 0):
@@ -435,7 +444,7 @@ def plot_scatter_plot (original_velocity, predicted_velocity, path_save, filenam
         ax[2].set_xlabel('Original data')
         ax[2].set_ylabel('Predicted data')
 
-    plt.savefig(path_save+filename + '.png')
+    plt.savefig(os.path.join(path_save, filename + '.png'))
     plt.close()
 
 # def plot_test_full_map (deepvel_object, params_model, dataset_path, test_save_path, name, zoomed_in_size = None, plot_intensity = True, n_input_channels = 2, 
@@ -538,8 +547,8 @@ def plot_prediction_and_scatter_full_map_vertical (deepvel_object, params_model,
     if velocity_to_plot.shape[0]==3:
         nrows +=1
 
-    if denormalized or velocity_to_plot.shape[0]==3: figsize = (35, 40)
-    else: figsize=(25, 35)
+    if denormalized or velocity_to_plot.shape[0]==3: figsize = (40, 60)
+    else: figsize=(40, 45)
 
     fig, ax = plt.subplots(nrows = nrows, ncols = ncols, figsize=figsize)
     plt.subplots_adjust(hspace=0.4)
@@ -700,7 +709,7 @@ def plot_prediction_and_scatter_full_map_vertical (deepvel_object, params_model,
 
     if test_save_path is not None:
         # plt.savefig(test_save_path + 'full_analysis_' + name + '.png')
-        fig.savefig(test_save_path + 'full_analysis_' + name + '.png')
+        fig.savefig(os.path.join(test_save_path, 'full_analysis_' + name + '.png'))
     plt.close(fig)
 
     if return_metrics:
