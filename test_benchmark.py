@@ -17,7 +17,11 @@ metrics_by_tau = OrderedDict()
 dataset_path = "/home/xenoss/dat/multi_height_data_new/final_dataset_multiheight/test/" 
 
 ################## NOTE PLOTTING LOSS CURVES FOR BENCHMARK MODELS #####################
-tau = ["1.0", "0.1"]
+tau = ["1.0", "1.0", "0.1", "1.0", "0.1"]
+model_types = [ModelType.DEEPVEL_I, ModelType.DEEPVEL_B, ModelType.DEEPVEL_B, ModelType.DEEPVEL_Vz, ModelType.DEEPVEL_Vz]
+ckpts_path = os.path.join(main_root, 'models_benchmarking/')
+plot_train_val_losses(tau_levels=tau, ckpts_path=ckpts_path, model_type=model_types, name='benchmarking_training_all_combined', save_path=os.path.join(main_root, 'models_benchmarking'))
+
 #######################################################################################
 
 ################## NOTE TESTING BENCHMARK MODELS WITH CADENCE = 30S #####################
@@ -120,107 +124,117 @@ tau = ["1.0", "0.1"]
 # model_paths = ["/home/xenoss/dat/models_benchmarking/DeepVel_I/", "/home/xenoss/dat/models_benchmarking/DeepVel_Bz/tau_1.0/", "/home/xenoss/dat/models_benchmarking/DeepVel_Bz/tau_0.1/"]
 # model_types = [ModelType.DEEPVEL_I, ModelType.DEEPVEL_B, ModelType.DEEPVEL_B]
 
-checkpoints = ["/home/xenoss/dat/models_benchmarking/DeepVel_vz/tau_1.0/checkpoints/DeepVel_torch_epoch_93_0.07742.pt", "/home/xenoss/dat/models_benchmarking/DeepVel_vz/tau_0.1/checkpoints/DeepVel_torch_epoch_95_0.03773.pt"]
-taus = ["1.0", "1e-1"]
-model_names = ["DeepVel_Vz_tau_1.0", "DeepVel_Vz_tau_1e-1"]
-model_paths = ["/home/xenoss/dat/models_benchmarking/DeepVel_vz/tau_1.0/", "/home/xenoss/dat/models_benchmarking/DeepVel_vz/tau_0.1/"]
-model_types = [ModelType.DEEPVEL_Vz, ModelType.DEEPVEL_Vz]
-csvs = ["Vz", "Vz"]
-for i, ckpt in enumerate(checkpoints):
+# checkpoints = ["/home/xenoss/dat/models_benchmarking/DeepVel_vz/tau_1.0/checkpoints/DeepVel_torch_epoch_93_0.07742.pt", "/home/xenoss/dat/models_benchmarking/DeepVel_vz/tau_0.1/checkpoints/DeepVel_torch_epoch_95_0.03773.pt"]
+# taus = ["1.0", "1e-1"]
+# model_names = ["DeepVel_Vz_tau_1.0", "DeepVel_Vz_tau_1e-1"]
+# model_paths = ["/home/xenoss/dat/models_benchmarking/DeepVel_vz/tau_1.0/", "/home/xenoss/dat/models_benchmarking/DeepVel_vz/tau_0.1/"]
+# model_types = [ModelType.DEEPVEL_Vz, ModelType.DEEPVEL_Vz]
+# csvs = ["Vz", "Vz"]
+# for i, ckpt in enumerate(checkpoints):
 
-    deepvel_net = DeepVel_run(root = main_root, in_shape=(4, 1536, 1536), out_shape=(2, 1536, 1536), type=model_types[i], batch = 64, dataset_path = data_path, network_path = model_paths[i]+"checkpoints/", tau=taus[i])
-    params_model = ckpt
+#     deepvel_net = DeepVel_run(root = main_root, in_shape=(4, 1536, 1536), out_shape=(2, 1536, 1536), type=model_types[i], batch = 64, dataset_path = data_path, network_path = model_paths[i]+"checkpoints/", tau=taus[i])
+#     params_model = ckpt
 
-    if model_types[i] == ModelType.DEEPVEL_I:
-        input_path = dataset_path + f"inputs/I/tau_{taus[i]}/"
+#     if model_types[i] == ModelType.DEEPVEL_I:
+#         input_path = dataset_path + f"inputs/I/tau_{taus[i]}/"
 
-    elif model_types[i] == ModelType.DEEPVEL_B:
-        input_path = dataset_path + f"inputs/B/tau_{taus[i]}/"
+#     elif model_types[i] == ModelType.DEEPVEL_B:
+#         input_path = dataset_path + f"inputs/B/tau_{taus[i]}/"
     
-    elif model_types[i] == ModelType.DEEPVEL_Vz:
-        print("Using Vz as input")
-        input_path = dataset_path + f"inputs/vz/tau_{taus[i]}/"
+#     elif model_types[i] == ModelType.DEEPVEL_Vz:
+#         print("Using Vz as input")
+#         input_path = dataset_path + f"inputs/vz/tau_{taus[i]}/"
     
-    input_test_data = os.listdir(input_path)
-    input_test_data.sort()
+#     input_test_data = os.listdir(input_path)
+#     input_test_data.sort()
 
-    vel_path = dataset_path + f"labels/tau_{taus[i]}/"
-    vel_test_data = os.listdir(vel_path)
-    vel_test_data.sort()
+#     vel_path = dataset_path + f"labels/tau_{taus[i]}/"
+#     vel_test_data = os.listdir(vel_path)
+#     vel_test_data.sort()
 
-    metrics_rows = []
-    print(f"Evaluating model for tau = {taus[i]} ...")
-    for j in range(len(input_test_data)):
-        input = torch.from_numpy(np.load(os.path.join(input_path, input_test_data[j])).astype(np.float32))
-        ground_truth = torch.from_numpy(np.load(os.path.join(vel_path, vel_test_data[j])).astype(np.float32))
+#     metrics_rows = []
+#     print(f"Evaluating model for tau = {taus[i]} ...")
+#     for j in range(len(input_test_data)):
+#         input = torch.from_numpy(np.load(os.path.join(input_path, input_test_data[j])).astype(np.float32))
+#         ground_truth = torch.from_numpy(np.load(os.path.join(vel_path, vel_test_data[j])).astype(np.float32))
 
-        prediction = deepvel_net.predict(input,params_model)
+#         prediction = deepvel_net.predict(input,params_model)
 
-        divergence_orig = get_divergence(ground_truth[0], ground_truth[1])
-        divergence_pred = get_divergence(prediction[0], prediction[1])
-        vorticity_orig = get_vorticity(ground_truth[0], ground_truth[1])
-        vorticity_pred = get_vorticity(prediction[0], prediction[1])
+#         divergence_orig = get_divergence(ground_truth[0], ground_truth[1])
+#         divergence_pred = get_divergence(prediction[0], prediction[1])
+#         vorticity_orig = get_vorticity(ground_truth[0], ground_truth[1])
+#         vorticity_pred = get_vorticity(prediction[0], prediction[1])
 
-        mse_l, rmse_l, pearson0, pearson1, slope_x, slope_y = get_all_metrics(ground_truth, prediction).values()
-        mse_d, rmse_d, pearson_d, slope_d = get_all_metrics(divergence_orig, divergence_pred, is_divergence=True).values()
-        mse_v, rmse_v, pearson_v, slope_v = get_all_metrics(vorticity_orig, vorticity_pred, is_divergence=True).values()
+#         mse_l, rmse_l, pearson0, pearson1, slope_x, slope_y = get_all_metrics(ground_truth, prediction).values()
+#         mse_d, rmse_d, pearson_d, slope_d = get_all_metrics(divergence_orig, divergence_pred, is_divergence=True).values()
+#         mse_v, rmse_v, pearson_v, slope_v = get_all_metrics(vorticity_orig, vorticity_pred, is_divergence=True).values()
 
-        row = {
-            'tau': taus[i],
-            'sample_index': j,
-            'mse_vel': mse_l,
-            'rmse_vel': rmse_l,
-            'pearson_vel_x': pearson0,
-            'pearson_vel_y': pearson1,
-            'slope_vel_x': slope_x,
-            'slope_vel_y': slope_y,
-            'mse_div': mse_d,
-            'rmse_div': rmse_d,
-            'pearson_div': pearson_d,
-            'slope_div': slope_d,
-            'mse_vort': mse_v,
-            'rmse_vort': rmse_v,
-            'pearson_vort': pearson_v,
-            'slope_vort': slope_v
-        }
-        metrics_rows.append(row)
+#         row = {
+#             'tau': taus[i],
+#             'sample_index': j,
+#             'mse_vel': mse_l,
+#             'rmse_vel': rmse_l,
+#             'pearson_vel_x': pearson0,
+#             'pearson_vel_y': pearson1,
+#             'slope_vel_x': slope_x,
+#             'slope_vel_y': slope_y,
+#             'mse_div': mse_d,
+#             'rmse_div': rmse_d,
+#             'pearson_div': pearson_d,
+#             'slope_div': slope_d,
+#             'mse_vort': mse_v,
+#             'rmse_vort': rmse_v,
+#             'pearson_vort': pearson_v,
+#             'slope_vort': slope_v
+#         }
+#         metrics_rows.append(row)
 
-    csv_dir = os.path.join(main_root, 'models_benchmarking/test_metrics/')
+#     csv_dir = os.path.join(main_root, 'models_benchmarking/test_metrics/')
 
-    df_tau = pd.DataFrame(metrics_rows)
-    avg_series = df_tau.select_dtypes(include=[np.number]).mean()
-    avg_row = avg_series.to_dict()
-    avg_row['tau'] = taus[i]
-    avg_row['sample_index'] = 'AVERAGE'
-    df_tau = pd.concat([df_tau, pd.DataFrame([avg_row])], ignore_index=True)
+#     df_tau = pd.DataFrame(metrics_rows)
+#     avg_series = df_tau.select_dtypes(include=[np.number]).mean()
+#     avg_row = avg_series.to_dict()
+#     avg_row['tau'] = taus[i]
+#     avg_row['sample_index'] = 'AVERAGE'
+#     df_tau = pd.concat([df_tau, pd.DataFrame([avg_row])], ignore_index=True)
 
-    csv_path_tau = os.path.join(csv_dir, f'{csvs[i]}_metrics_tau_{taus[i]}.csv')
-    df_tau.to_csv(csv_path_tau, index=False)
+#     csv_path_tau = os.path.join(csv_dir, f'{csvs[i]}_metrics_tau_{taus[i]}.csv')
+#     df_tau.to_csv(csv_path_tau, index=False)
 
 
 #################################  NOTE TESTING ON LAST 4 LAYERS #############################################
 
+# mean = OrderedDict()
+# #1st element corresponds to vx, 2nd to vy
+# mean["1.0"] = [-2078.321533203125, 3573.025634765625]
+# mean["1e-1"] = [-1068.5284423828125, 4305.888671875]
+
+# std = OrderedDict()
+# #1st element corresponds to vx, 2nd to vy
+# std["1.0"] = [232136.484375, 230852.375]
+# std["1e-1"] = [223613.75, 220306.984375]
+
 # # checkpoints = ["/home/xenoss/dat/models_benchmarking/DeepVel_I/checkpoints/DeepVel_torch_epoch_99_0.14751.pt","/home/xenoss/dat/models_benchmarking/DeepVel_Bz/tau_1.0/checkpoints/DeepVel_torch_epoch_93_0.11650.pt", "/home/xenoss/dat/models_benchmarking/DeepVel_Bz/tau_0.1/checkpoints/DeepVel_torch_epoch_99_0.05246.pt"]
 # # taus = ["1.0", "1.0", "0.1"]
 # # tau_int = ["1.0", "1.0", "1e-1"]
-# checkpoints = ["/home/xenoss/dat/models_benchmarking/DeepVel_vz/tau_1.0/checkpoints/DeepVel_torch_epoch_93_0.07742.pt", "/home/xenoss/dat/models_benchmarking/DeepVel_vz/tau_0.1/checkpoints/DeepVel_torch_epoch_95_0.03773.pt"]
-# taus = ["1.0", "0.1"]
-# tau_int = ["1.0", "1e-1"]
-# model_names = ["DeepVel_vz", "DeepVel_vz"]
-# model_paths = ["/home/xenoss/dat/models_benchmarking/DeepVel_vz/tau_1.0/", "/home/xenoss/dat/models_benchmarking/DeepVel_vz/tau_0.1/"]
-# model_types = [ModelType.DEEPVEL_Vz, ModelType.DEEPVEL_Vz]
+# checkpoints = ["/home/xenoss/dat/models_benchmarking/DeepVel_I/checkpoints/DeepVel_torch_epoch_99_0.14751.pt", "/home/xenoss/dat/models_benchmarking/DeepVel_Bz/tau_1.0/checkpoints/DeepVel_torch_epoch_93_0.11650.pt", "/home/xenoss/dat/models_benchmarking/DeepVel_Bz/tau_0.1/checkpoints/DeepVel_torch_epoch_99_0.05246.pt","/home/xenoss/dat/models_benchmarking/DeepVel_vz/tau_1.0/checkpoints/DeepVel_torch_epoch_93_0.07742.pt", "/home/xenoss/dat/models_benchmarking/DeepVel_vz/tau_0.1/checkpoints/DeepVel_torch_epoch_95_0.03773.pt"]
+# taus = ["1.0", "1.0", "0.1", "1.0", "0.1"]
+# tau_int = ["1.0","1.0", "1e-1", "1.0", "1e-1"]
+# model_names = ["DeepVel_I", "DeepVel_Bz", "DeepVel_Bz", "DeepVel_vz", "DeepVel_vz"]
+# model_paths = ["/home/xenoss/dat/models_benchmarking/DeepVel_I/", "/home/xenoss/dat/models_benchmarking/DeepVel_Bz/tau_1.0/", "/home/xenoss/dat/models_benchmarking/DeepVel_Bz/tau_0.1/", "/home/xenoss/dat/models_benchmarking/DeepVel_vz/tau_1.0/", "/home/xenoss/dat/models_benchmarking/DeepVel_vz/tau_0.1/"]
+# model_types = [ModelType.DEEPVEL_I, ModelType.DEEPVEL_B, ModelType.DEEPVEL_B, ModelType.DEEPVEL_Vz, ModelType.DEEPVEL_Vz]
 # dataset_path = os.path.join(dataset_path, "last_4_layers")
 # for i, ckpt in enumerate(checkpoints):
 
 #     deepvel_net = DeepVel_run(root = main_root, in_shape=(4, 1536, 1536), out_shape=(2, 1536, 1536), type=model_types[i], batch = 64, dataset_path = data_path, network_path = model_paths[i]+"checkpoints/", tau=tau_int[i])
 #     params_model = ckpt
 
-#     test_save_path = f"/home/xenoss/dat/models_benchmarking/{model_names[i]}/tau_{taus[i]}/test/"
+#     test_save_path = f"/home/xenoss/dat/models_benchmarking/{model_names[i]}/test/" if model_types[i] == ModelType.DEEPVEL_I else f"/home/xenoss/dat/models_benchmarking/{model_names[i]}/tau_{taus[i]}/test/"
 #     plot_prediction_and_scatter_full_map_vertical (deepvel_object = deepvel_net, params_model = params_model, 
 #                                                    dataset_path = dataset_path, test_save_path = test_save_path, 
 #                                                    name = f"{model_names[i]}_{taus[i]}", zoomed_in_size = None, 
 #                                                    plot_intensity = False, n_input_channels = 4, scatter_dim = None, zoom_out = 0, 
-#                                                    write_metrics = False, denormalized = False, return_metrics = False, model_type = model_types[i], 
+#                                                    write_metrics = False, denormalized = False, mean_vel=mean[tau_int[i]], std_vel=std[tau_int[i]], return_metrics = False, model_type = model_types[i], 
 #                                                    title = model_names[i]+", tau = " + taus[i], tau = tau_int[i])
 
 #######################################################################################################################################

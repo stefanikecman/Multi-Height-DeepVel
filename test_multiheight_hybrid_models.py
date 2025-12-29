@@ -6,21 +6,37 @@ import csv
 from hybrid_deepvel_torch import DeepVel_run 
 import pandas as pd
 from analysis_fn import get_all_metrics, get_divergence, get_vorticity
-from metrics_and_plotting import ModelType, plot_prediction_and_scatter_full_map_vertical
+from metrics_and_plotting import ModelType, plot_prediction_and_scatter_full_map_vertical, plot_train_val_losses
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-# tau_levels=[1.0, 1e-1,1e-2,1e-3,1e-4,1e-5,1e-6]
-# taus = ["1.0", "1e-1", "1e-2","1e-3", "1e-4", "1e-5", "1e-6"]
-# model_types = [ModelType.HYBRID_Bvz, ModelType.HYBRID_Bvz, ModelType.HYBRID_Bvz, ModelType.HYBRID_Bvz, ModelType.HYBRID_Bvz, ModelType.HYBRID_Bvz]
+# tau_levels=[1.0, 1e-1,1e-2,1e-3,1e-4]
+# taus = ["1.0", "1e-1", "1e-2","1e-3", "1e-4"]
+# model_types = [ModelType.HYBRID_Bvz, ModelType.HYBRID_Bvz, ModelType.HYBRID_Bvz, ModelType.HYBRID_Bvz, ModelType.HYBRID_Bvz]
+# model_names = ["Hybrid_B_vz", "Hybrid_B_vz", "Hybrid_B_vz", "Hybrid_B_vz", "Hybrid_B_vz"]
 # best_models = OrderedDict()
-# best_models["1.0"] = "DeepVel_torch_epoch_99_0.06743.pt"
-# best_models["1e-1"] = "DeepVel_torch_epoch_95_0.03001.pt"
-# best_models["1e-2"] = "DeepVel_torch_epoch_96_0.04096.pt"
-# best_models["1e-3"] = "DeepVel_torch_epoch_95_0.11373.pt"
-# best_models["1e-4"] = "DeepVel_torch_epoch_97_0.18295.pt"
-# best_models["1e-5"] = "DeepVel_torch_epoch_99_0.23170.pt"
-# best_models["1e-6"] = "DeepVel_torch_epoch_96_0.26705.pt"
+# best_models["1.0"] = "DeepVel_torch_epoch_97_0.06555.pt"
+# best_models["1e-1"] = "DeepVel_torch_epoch_98_0.03048.pt"
+# best_models["1e-2"] = "DeepVel_torch_epoch_98_0.04046.pt"
+# best_models["1e-3"] = "DeepVel_torch_epoch_98_0.11586.pt"
+# best_models["1e-4"] = "DeepVel_torch_epoch_94_0.18115.pt"
+
+mean = OrderedDict()
+#1st element corresponds to vx, 2nd to vy
+mean["1.0"] = [-2078.321533203125, 3573.025634765625]
+mean["1e-1"] = [-1068.5284423828125, 4305.888671875]
+mean["1e-2"] = [2579.50732421875, 4552.302734375]
+mean["1e-3"] = [2779.994140625, 5230.796875]
+mean["1e-4"] = [-164.8361358642578,  5951.0673828125]
+
+std = OrderedDict()
+#1st element corresponds to vx, 2nd to vy
+std["1.0"] = [232136.484375, 230852.375]
+std["1e-1"] = [223613.75, 220306.984375]
+std["1e-2"] = [171844.03125, 169797.921875]
+std["1e-3"] = [130505.2578125, 126075.28125]
+std["1e-4"] = [143405.125, 140374.46875]
+
 
 tau_levels=[1.0]
 taus = ["1.0"]
@@ -124,9 +140,9 @@ for i, tau in enumerate(tau_levels):
                 dataset_path = dataset_path, test_save_path = test_save_path, 
                 name = f"{model_names[i]}_{taus[i]}", zoomed_in_size = None, 
                 plot_intensity = False, n_input_channels = 4, scatter_dim = None, zoom_out = 0, 
-                write_metrics = False, denormalized = False, return_metrics = False, model_type = model_types[i], 
+                write_metrics = False,denormalized=True, mean_vel=mean[taus[i]], std_vel=std[taus[i]], return_metrics = False, model_type = model_types[i], 
                 title = model_names[i]+", tau = " + taus[i], tau = taus[i])
-#     print(f"Metrics for tau = {taus[i]}: {metrics}")
+    # print(f"Metrics for tau = {taus[i]}: {metrics}")
 
 #     metrics_by_tau[taus[i]] = metrics
     
@@ -137,3 +153,9 @@ for i, tau in enumerate(tau_levels):
 # csv_path = os.path.join(output_dir, 'metrics_by_tau.csv')
 # df_metrics.to_csv(csv_path)
 # print(f"Saved metrics summary to {csv_path}")
+
+################## NOTE PLOTTING LOSS CURVES FOR MULTI-HEIGHT HYBRID MODELS #####################
+# tau = ["1.0", "1.0", "1e-1", "1e-2", "1e-3", "1e-4"]
+# model_types = [ModelType.HYBRID_Ivz, ModelType.HYBRID_Bvz, ModelType.HYBRID_Bvz, ModelType.HYBRID_Bvz, ModelType.HYBRID_Bvz, ModelType.HYBRID_Bvz]
+# ckpts_path = os.path.join(main_root, 'models_multi_height')
+# plot_train_val_losses(tau_levels=tau, ckpts_path=ckpts_path, model_type=model_types, name='multiheight_training_all_combined', save_path=os.path.join(main_root, 'models_multi_height/'))

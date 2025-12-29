@@ -8,7 +8,7 @@ matplotlib.use('agg')
 import matplotlib.pyplot as plt
 import torch.nn as nn
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-from analysis_fn import get_divergence, get_vorticity, get_all_metrics
+from analysis_fn import get_divergence, get_vorticity, get_all_metrics, denormalize_data
 from enum import Enum
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -24,7 +24,7 @@ class ModelType(Enum):
     DEEPVEL_Vz = 8
     HYBRID_Ivz = 9
 
-def plot_train_val_losses(tau_levels, ckpts_path):
+def plot_train_val_losses(tau_levels, ckpts_path, model_type: ModelType, save_path, name):
     """
     Method for plot_train_val_losses
     
@@ -38,10 +38,19 @@ def plot_train_val_losses(tau_levels, ckpts_path):
     all_val = []
 
     for i, tau in enumerate(tau_levels):
-        if i== 0: #this is intensity only model
+        if model_type[i] == ModelType.DEEPVEL_I:
             model_glob = f"{ckpts_path}/DeepVel_I/checkpoints/*.npy"
-        else:
-            model_glob = f"{ckpts_path}/DeepVel_Bz/tau_{taus[i]}/checkpoints/*.npy"
+        elif model_type[i] == ModelType.DEEPVEL_B:
+            model_glob = f"{ckpts_path}/DeepVel_Bz/tau_{tau}/checkpoints/*.npy"
+        elif model_type[i] == ModelType.DEEPVEL_Vz:
+            model_glob = f"{ckpts_path}/DeepVel_vz/tau_{tau}/checkpoints/*.npy"
+        elif model_type[i] == ModelType.HYBRID_Bvz:
+            model_glob = f"{ckpts_path}/Hybrid_B_vz/tau_{tau}/checkpoints/*.npy"
+        elif model_type[i] == ModelType.HYBRID_IBvz:
+            model_glob = f"{ckpts_path}/Hybrid_I_B_vz/tau_{tau}/checkpoints/*.npy"
+        elif model_type[i] == ModelType.HYBRID_Ivz:
+            model_glob = f"{ckpts_path}/Hybrid_I_vz/tau_{tau}/checkpoints/*.npy"
+        
         path = glob.glob(model_glob)[0]
         with open(path, "rb") as f:
             _ = np.load(f, allow_pickle=True).item()
@@ -67,8 +76,18 @@ def plot_train_val_losses(tau_levels, ckpts_path):
         train = np.asarray(all_train[i])
         val = np.asarray(all_val[i])
         color = cmap(i % cmap.N)
-        if i == 0: label = "DeepVel I"
-        else: label = f"DeepVel Bz tau={taus[i]}"
+        if model_type[i] == ModelType.DEEPVEL_I: 
+            label = "DeepVel I"
+        elif model_type[i] == ModelType.DEEPVEL_B:
+            label = f"DeepVel Bz tau={taus[i]}"
+        elif model_type[i] == ModelType.DEEPVEL_Vz:
+            label = f"DeepVel Vz tau={taus[i]}"
+        elif model_type[i] == ModelType.HYBRID_Bvz:
+            label = f"Hybrid Bz+Vz tau={taus[i]}"
+        elif model_type[i] == ModelType.HYBRID_IBvz:
+            label = f"Hybrid I+Bz+Vz tau={taus[i]}"
+        elif model_type[i] == ModelType.HYBRID_Ivz:
+            label = f"Hybrid I+Vz tau={taus[i]}"
         plt.plot(x, train, color=color, linestyle='-', linewidth=2, label=f"{label} train")
         plt.plot(x, val,   color=color, linestyle='--', linewidth=1.5, label=f"{label} val")
 
@@ -77,7 +96,7 @@ def plot_train_val_losses(tau_levels, ckpts_path):
     plt.title('Benchmarking Models: Train and Val Loss Curves')
     plt.legend(loc='upper right', fontsize='small', ncol=2)
     plt.grid(True)
-    out_path = '/home/xenoss/dat/models_benchmarking/benchmarking_training_all_combined.png'
+    out_path = save_path + name + '.png'
     plt.savefig(out_path, bbox_inches='tight', dpi=200)
     plt.close()
 
@@ -504,7 +523,7 @@ def plot_scatter_plot (original_velocity, predicted_velocity, path_save, filenam
 
 
 def plot_prediction_and_scatter_full_map_vertical (deepvel_object, params_model, dataset_path, test_save_path, name, zoomed_in_size = None, plot_intensity = False, n_input_channels = 2, 
-                                                   scatter_dim = None, zoom_out = 0, write_metrics = False, denormalized = False, return_metrics = False, model_type = ModelType.DEEPVEL_I, title = None, tau = None):
+                                                   scatter_dim = None, zoom_out = 0, write_metrics = False, denormalized = False, mean_vel = None, std_vel = None, return_metrics = False, model_type = ModelType.DEEPVEL_I, title = None, tau = None):
     """
     Plot predictions and scatter plots for a full map in a vertical layout.
     Args:
@@ -547,8 +566,8 @@ def plot_prediction_and_scatter_full_map_vertical (deepvel_object, params_model,
     if velocity_to_plot.shape[0]==3:
         nrows +=1
 
-    if denormalized or velocity_to_plot.shape[0]==3: figsize = (40, 60)
-    else: figsize=(40, 45)
+    if velocity_to_plot.shape[0]==3: figsize = (40, 60)
+    else: figsize=(37, 45)
 
     fig, ax = plt.subplots(nrows = nrows, ncols = ncols, figsize=figsize)
     plt.subplots_adjust(hspace=0.4)
@@ -591,33 +610,44 @@ def plot_prediction_and_scatter_full_map_vertical (deepvel_object, params_model,
 
         idx += 1
 
-    mean_vel = 1360.96728515625
-    std_vel = 230181.609375
-    vmin = -3 * std_vel/1e5
-    vmax = -1 * vmin
+    if std_vel is None:
+        std_vel_x = np.std(vel_0)
+        std_vel_y = np.std(vel_1)
+    else:
+        std_vel_x = std_vel[0]
+        std_vel_y = std_vel[1]
 
-    # if denormalized:
-    #     vel_0 = denormalize_data(vel_0, mean_vel, std_vel)/1e5
-    #     vel_1 = denormalize_data(vel_1, mean_vel, std_vel)/1e5
-    #     vel_0_pred = denormalize_data(vel_0_pred, mean_vel, std_vel)/1e5
-    #     vel_1_pred = denormalize_data(vel_1_pred, mean_vel, std_vel)/1e5
-    #     vmin = -3 * std_vel/1e5
-    #     vmax = -1 * vmin
+    vmin_x = -3 * std_vel_x/1e5
+    vmax_x = -1 * vmin_x
+    vmin_y = -3 * std_vel_y/1e5
+    vmax_y = -1 * vmin_y
 
-    im = ax[idx][0].imshow(vel_0.T, cmap='bwr', vmin = vmin, vmax = vmax, origin = 'lower', extent = extent, aspect='auto')
+    if denormalized:
+        vel_0 = denormalize_data(vel_0, mean_vel[0], std_vel[0])/1e5
+        vel_1 = denormalize_data(vel_1, mean_vel[1], std_vel[1])/1e5
+        vel_0_pred = denormalize_data(vel_0_pred, mean_vel[0], std_vel[0])/1e5
+        vel_1_pred = denormalize_data(vel_1_pred, mean_vel[1], std_vel[1])/1e5
+
+    im = ax[idx][0].imshow(vel_0.T, cmap='bwr', vmin = vmin_x, vmax = vmax_x, origin = 'lower', extent = extent, aspect='auto')
     ax[idx][0].set_title('vx - ground truth', pad = 20)
     ax[idx][0].set_xlabel('x [Mm]')
     ax[idx][0].set_ylabel('y [Mm]')
     cbar = add_colorbar(im, ax[idx][0])
 
-    ax[idx][1].imshow(vel_1.T, cmap='bwr', vmin = vmin, vmax = vmax, origin = 'lower', extent = extent, aspect='auto')
+    ax[idx][1].imshow(vel_1.T, cmap='bwr', vmin = vmin_y, vmax = vmax_y, origin = 'lower', extent = extent, aspect='auto')
     ax[idx][1].set_title('vy - ground truth', pad = 20)
     ax[idx][1].set_xlabel('x [Mm]')
     ax[idx][1].set_ylabel('y [Mm]')
     cbar = add_colorbar(im, ax[idx][1])
 
     if velocity_to_plot.shape[0]==3:
-        ax[idx][2].imshow(vel_2.T, cmap='bwr', vmin = vmin, vmax = vmax, origin = 'lower', extent = extent, aspect='auto')
+        if std_vel is None:
+            std_vel_z = np.std(vel_2)
+        else:
+            std_vel_z = std_vel[2]
+        vmin_z = -3 * std_vel_z/1e5
+        vmax_z = -1 * vmin_z
+        ax[idx][2].imshow(vel_2.T, cmap='bwr', vmin = vmin_z, vmax = vmax_z, origin = 'lower', extent = extent, aspect='auto')
         ax[idx][2].set_title('vz - ground truth', pad = 20)
         ax[idx][2].set_xlabel('x [Mm]')
         ax[idx][2].set_ylabel('y [Mm]')
@@ -625,29 +655,26 @@ def plot_prediction_and_scatter_full_map_vertical (deepvel_object, params_model,
 
     idx +=1
 
-    ax[idx][0].imshow(vel_0_pred.T, cmap='bwr', vmin = vmin, vmax = vmax, origin = 'lower', extent = extent, aspect='auto')
+    ax[idx][0].imshow(vel_0_pred.T, cmap='bwr', vmin = vmin_x, vmax = vmax_x, origin = 'lower', extent = extent, aspect='auto')
     ax[idx][0].set_title('vx - predicted', pad = 20)
     ax[idx][0].set_xlabel('x [Mm]')
     ax[idx][0].set_ylabel('y [Mm]')
     cbar = add_colorbar(im, ax[idx][0])
 
-    ax[idx][1].imshow(vel_1_pred.T, cmap='bwr', vmin = vmin, vmax = vmax, origin = 'lower', extent = extent, aspect='auto')
+    ax[idx][1].imshow(vel_1_pred.T, cmap='bwr', vmin = vmin_y, vmax = vmax_y, origin = 'lower', extent = extent, aspect='auto')
     ax[idx][1].set_title('vy - predicted', pad = 20)
     ax[idx][1].set_xlabel('x [Mm]')
     ax[idx][1].set_ylabel('y [Mm]')
     cbar = add_colorbar(im, ax[idx][1])
 
     if velocity_to_plot.shape[0]==3:
-        ax[idx][2].imshow(vel_2_pred.T, cmap='bwr', vmin = vmin, vmax = vmax, origin = 'lower', extent = extent, aspect='auto')
+        ax[idx][2].imshow(vel_2_pred.T, cmap='bwr', vmin = vmin_z, vmax = vmax_z, origin = 'lower', extent = extent, aspect='auto')
         ax[idx][2].set_title('vz - predicted', pad = 20)
         ax[idx][2].set_xlabel('x [Mm]')
         ax[idx][2].set_ylabel('y [Mm]')
         cbar = add_colorbar(im, ax[idx][2])
 
     idx +=1
-
-    vmin2 = -3 * np.std(vel_0)/1e5
-    vmax2 = -1 * vmin2
 
     im = ax[idx][0].scatter(vel_0.flatten(), vel_0_pred.flatten(), alpha = 0.05, linewidths = 0.7)
     min0 = min(vel_0.min(), vel_0_pred.min()) - zoom_out
@@ -705,11 +732,14 @@ def plot_prediction_and_scatter_full_map_vertical (deepvel_object, params_model,
         print(f'Vorticity - MSE Loss: {mse_v:.4f}, Root MSE Loss: {rmse_v:.4f}, Pearson: {pearson_v:.3f}, Slope: {slope_v:.3f}')
     
     if title is not None:
+        if denormalized: title = title + ' (denormalized)'
         plt.suptitle(title, fontsize=70, y=0.98)
 
     if test_save_path is not None:
-        # plt.savefig(test_save_path + 'full_analysis_' + name + '.png')
-        fig.savefig(os.path.join(test_save_path, 'full_analysis_' + name + '.png'))
+        if denormalized:
+            fig.savefig(os.path.join(test_save_path, 'full_analysis_denormalized_' + name + '.png'))
+        else:
+            fig.savefig(os.path.join(test_save_path, 'full_analysis_' + name + '.png'))
     plt.close(fig)
 
     if return_metrics:

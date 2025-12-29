@@ -52,6 +52,18 @@ def get_vorticity(vx, vy, dx=0.016 * 1e6, dy=0.016 * 1e6):
 
     return dvy_dx - dvx_dy
 
+def denormalize_data(data, mean, std):
+    """
+    Denormalize the data using the provided mean and standard deviation.
+    Args:
+        data: Normalized data tensor
+        mean: Mean used for normalization
+        std: Standard deviation used for normalization
+    Returns:
+        Denormalized data tensor
+    """
+    return data * std + mean
+
 def calculate_correlation (original, predicted):
 
     '''

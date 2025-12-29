@@ -21,29 +21,30 @@ class dataset_deepVel(Dataset):
     def __init__(self, dataset_path, in_channels = 4, test_idx = None, test = False, tau = None, type = ModelType.HYBRID_Bvz):
         
         self.in_channels = in_channels
-        self.magnetic_fields_dir = os.path.join(dataset_path, "inputs/B") if tau is None else os.path.join(dataset_path, f"inputs/B/tau_{tau}")
-        self.intensities_dir = os.path.join(dataset_path, "inputs/I") if tau is None else os.path.join(dataset_path, f"inputs/I/tau_{tau}")
         self.vz_dir = os.path.join(dataset_path, "inputs/vz") if tau is None else os.path.join(dataset_path, f"inputs/vz/tau_{tau}")
         self.velocities_dir = os.path.join(dataset_path, "labels") if tau is None else os.path.join(dataset_path, f"labels/tau_{tau}")
         self.type = type
 
         velocities = os.listdir(self.velocities_dir)
-        magnetic_fields = os.listdir(self.magnetic_fields_dir)
-        intensities = os.listdir(self.intensities_dir)
         vz = os.listdir(self.vz_dir)
         if type == ModelType.HYBRID_Bvz:
+            self.magnetic_fields_dir = os.path.join(dataset_path, "inputs/B") if tau is None else os.path.join(dataset_path, f"inputs/B/tau_{tau}")
+            magnetic_fields = os.listdir(self.magnetic_fields_dir)
+            magnetic_fields.sort()
+            self.magnetic_fields = magnetic_fields
             print("loading data from : ", self.velocities_dir, self.magnetic_fields_dir, self.vz_dir)
+
         elif type == ModelType.HYBRID_Ivz:
+            self.intensities_dir = os.path.join(dataset_path, "inputs/I") if tau is None else os.path.join(dataset_path, f"inputs/I/tau_{tau}")
+            intensities = os.listdir(self.intensities_dir)
+            intensities.sort()
+            self.intensities = intensities
             print("loading data from : ", self.velocities_dir, self.intensities_dir, self.vz_dir)
 
-        velocities.sort()
-        magnetic_fields.sort()
-        intensities.sort()
+        velocities.sort()        
         vz.sort()
 
         self.velocities = velocities
-        self.magnetic_fields = magnetic_fields
-        self.intensities = intensities
         self.vz = vz
 
         self.n_train_datapoints = len(self.vz)
@@ -230,7 +231,6 @@ class DeepVel_run(object):
         self.lr = 1e-4
         self.type = type
         self.network_path = network_path
-        # self.dataset = dataset_deepVel(dataset_path, in_channels=self.in_shape[0], test_idx=None, test=False, tau= self.tau, type=self.type)
         self.model = DeepVel_net(in_channels=self.in_shape[0], out_channels=self.out_shape[0], n_filters=self.n_filters, blocks=self.n_conv_layers).to(device)
         if torch.cuda.is_available() and torch.cuda.device_count() > 1:
             self.model = nn.DataParallel(self.model)
@@ -406,14 +406,14 @@ if (__name__ == '__main__'):
 
     ######### NOTE training multiheight models ########
     main_root = "/home/xenoss/dat/"
-    # tau_levels=[1e-1,1e-2,1e-3,1e-4]
-    # taus = ["1e-1", "1e-2", "1e-3", "1e-4"]
-    tau_levels=[1.0]
-    taus = ["1.0"]
+    tau_levels=[1e-1,1e-2,1e-3,1e-4]
+    taus = ["1e-1", "1e-2", "1e-3", "1e-4"]
+    # tau_levels=[1.0]
+    # taus = ["1.0"]
 
     for i, tau in enumerate(tau_levels):
         print(f"Training for tau = {tau}")
-        network_path = os.path.join(main_root, f'models_multi_height/Hybrid_I_vz/tau_{taus[i]}')
+        network_path = os.path.join(main_root, f'models_multi_height/Hybrid_B_vz/tau_{taus[i]}')
         data_path = os.path.join(main_root, f'multi_height_data_new/final_dataset_multiheight/train')
-        deepvel_net = DeepVel_run(root = main_root, in_shape=(4, 128, 128), out_shape=(2, 128, 128), batch = 64, dataset_path = data_path, network_path = os.path.join(network_path, 'checkpoints'), tau=taus[i], type=ModelType.HYBRID_Ivz)
+        deepvel_net = DeepVel_run(root = main_root, in_shape=(4, 128, 128), out_shape=(2, 128, 128), batch = 64, dataset_path = data_path, network_path = os.path.join(network_path, 'checkpoints'), tau=taus[i], type=ModelType.HYBRID_Bvz)
         deepvel_net.train(100)
