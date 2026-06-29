@@ -3,8 +3,7 @@
 ## Overview
 
 DeepVel 3D Velocity is a PyTorch-based framework for predicting and analyzing horizontal velocity fields from solar data. 
-It includes data preparation steps, model training, evaluation, and visualization scripts. 
-Also includes physics-informed loss method, that takes into account divergence and vorticity of the inferred data.
+It includes data preparation steps, model training, evaluation, and visualization scripts.
 
 The DeepVel network is originally published in Ramos, A. A., Requerey, I. S., & Vitas, N. (2017). DeepVel: deep learning for the estimation of horizontal velocities at the solar surface. Astronomy & Astrophysics, 604, A11.
 https://www.aanda.org/articles/aa/pdf/2017/08/aa30783-17.pdf
@@ -12,17 +11,17 @@ https://www.aanda.org/articles/aa/pdf/2017/08/aa30783-17.pdf
 ## Features
 
 - Neural network models, based on the DeepVel network, for velocity field prediction with variable temporal and spatial input extent
-- Hybrid input models with multiple physical inputs (magnetic field, vertical velocity)
+- Hybrid input models with multiple physical inputs (line-of-sight magnetic field, line-of-sight velocity)
 - Training on data with different cadence and different optical depths
 - Data normalization/denormalization codes
-- Evaluation metrics: MSE, RMSE, Pearson correlation (vx and vy), slope (vy and vy)- for the velocities, divergence and vorticity
+- Evaluation metrics: MSE, RMSE, Pearson correlation (vx and vy), slope (vy and vy) for the velocities, divergence and vorticity
 - Visualization: prediction maps, scatter plots, plots with visualized arrows
 
 ## Getting Started
 
 ### Prerequisites
 
-- Python 3.8+
+- Python 3.10
 - PyTorch (with CUDA for GPU support)
 
 ### Installation
@@ -40,7 +39,7 @@ pip install -r requirements.txt
 Methods for data preparation, normalization and other preprocessing steps are located in `prepare_data.py`.
 
 ### Training
-DeepVel model definition is in `deepvel_torch_benchmarking.py`
+Single-input DeepVel model definition is in `deepvel_torch_benchmarking.py`
 
 Train a model using:
 

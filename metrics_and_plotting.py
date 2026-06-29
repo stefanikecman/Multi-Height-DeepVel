@@ -66,7 +66,7 @@ def plot_train_val_losses(tau_levels, ckpts_path, model_type: ModelType, save_pa
         all_val.append(val_rmse)
 
     plt.figure(figsize=(14, 9))
-    plt.rcParams['font.size'] = 14
+    plt.rcParams['font.size'] = 20
 
     cmap = plt.get_cmap('tab10')
     n = len(all_train)
@@ -79,21 +79,21 @@ def plot_train_val_losses(tau_levels, ckpts_path, model_type: ModelType, save_pa
         if model_type[i] == ModelType.DEEPVEL_I: 
             label = "DeepVel I"
         elif model_type[i] == ModelType.DEEPVEL_B:
-            label = f"DeepVel Bz tau={taus[i]}"
+            label = rf"DeepVel B$_z$ $\tau$={taus[i]}"
         elif model_type[i] == ModelType.DEEPVEL_Vz:
-            label = f"DeepVel Vz tau={taus[i]}"
+            label = rf"DeepVel v$_z$ $\tau$={taus[i]}"
         elif model_type[i] == ModelType.HYBRID_Bvz:
-            label = f"Hybrid Bz+Vz tau={taus[i]}"
+            label = rf"Hybrid B$_z$ + v$_z$ $\tau$={taus[i]}"
         elif model_type[i] == ModelType.HYBRID_IBvz:
-            label = f"Hybrid I+Bz+Vz tau={taus[i]}"
+            label = rf"Hybrid I + B$_z$ + v$_z$ $\tau$={taus[i]}"
         elif model_type[i] == ModelType.HYBRID_Ivz:
-            label = f"Hybrid I+Vz tau={taus[i]}"
+            label = rf"Hybrid I + v$_z$ $\tau$={taus[i]}"
         plt.plot(x, train, color=color, linestyle='-', linewidth=2, label=f"{label} train")
         plt.plot(x, val,   color=color, linestyle='--', linewidth=1.5, label=f"{label} val")
 
     plt.xlabel('Epochs')
     plt.ylabel('Loss (RMSE)')
-    plt.title('Benchmarking Models: Train and Val Loss Curves')
+    plt.title('Hybrid-input Models: Training and Validation Loss Curves')
     plt.legend(loc='upper right', fontsize='small', ncol=2)
     plt.grid(True)
     out_path = save_path + name + '.png'
@@ -466,62 +466,6 @@ def plot_scatter_plot (original_velocity, predicted_velocity, path_save, filenam
     plt.savefig(os.path.join(path_save, filename + '.png'))
     plt.close()
 
-# def plot_test_full_map (deepvel_object, params_model, dataset_path, test_save_path, name, zoomed_in_size = None, plot_intensity = True, n_input_channels = 2, 
-#                                                    scatter_dim = None, zoom_out = 0, write_metrics = False, denormalized = False, return_metrics = False, model_type = ModelType.DEEPVEL_I, title = None, tau = None, arrows = False):
-#     """
-#     Plot predictions and scatter plots for a full map in a vertical layout.
-#     Args:
-#         deepvel_object: Instance of the DeepVel model
-#         params_model: Model parameters
-#         dataset_path: Path where the dataset is located
-#         test_save_path: Directory to save the test plots
-#         name: Base name for the saved plot files
-#         zoomed_in_size: Optional tuple specifying the size to zoom in on (height, width)
-#         plot_intensity: Boolean indicating whether to plot intensity maps
-#         n_input_channels: Number of input channels in the intensity map (2, 4, or 6)
-#         scatter_dim: Optional tuple specifying the dimensions to zoom in on for scatter plot (height, width)
-#         zoom_out: Value to expand the axes limits for better visualization in scatter plot
-#         write_metrics: Boolean indicating whether to write metrics on the plot
-#         denormalized: Boolean indicating whether to denormalize velocity data before plotting
-#         return_metrics: Boolean indicating whether to return calculated metrics
-#         model_type: Enum indicating the model type (DEEPVEL_I, DEEPVEL_B, HYBRID_Bvz, HYBRID_IBvz, STOKES_I, STOKES_V, STOKES_IV)
-#         title: Optional title for the plot
-#         arrows: Boolean indicating whether to overlay arrows on velocity fields
-#         tau: Optional optical depth parameter
-#     """
-
-#     plt.rcParams['font.size'] = 40
-#     inputs, velocity_to_plot, velocity_pred = load_data_and_get_predictions(deepvel_object, params_model, dataset_path, n_input_channels, model_type, tau, zoomed_in_size)
-#     extent = [0, velocity_to_plot.shape[1]*0.016, 0, velocity_to_plot.shape[0]*0.016]
-
-#     intensity_to_plot = inputs["intensity"]
-    
-#     plot_predictions(
-#         intensity_to_plot, velocity_to_plot, velocity_pred,
-#         test_save_path, name,
-#         plot_intensity=plot_intensity,
-#         arrows=arrows
-#     )
-#     plot_scatter_plot(velocity_to_plot, velocity_pred, test_save_path, 'scatter_'+name)
-
-#     #NOTE: I CAME TO HERE, REFACTOR THE DIV AND VORT
-#     divergence_orig = get_divergence(velocity_to_plot[0].cpu().numpy(), velocity_to_plot[1].cpu().numpy())
-#     divergence_pred = get_divergence(velocity_pred[0].cpu().numpy(), velocity_pred[1].cpu().numpy())
-#     vorticity_orig = get_vorticity(velocity_to_plot[0].cpu().numpy(), velocity_to_plot[1].cpu().numpy())
-#     vorticity_pred = get_vorticity(velocity_pred[0].cpu().numpy(), velocity_pred[1].cpu().numpy())
-
-#     mse_l, rmse_l, pearson0, pearson1, slope_x, slope_y = get_all_metrics(velocity_to_plot, velocity_pred).values()
-#     mse_d, rmse_d, pearson_d, slope_d = get_all_metrics(divergence_orig, divergence_pred, is_divergence=True).values()
-#     mse_v, rmse_v, pearson_v, slope_v = get_all_metrics(vorticity_orig, vorticity_pred, is_divergence=True).values()
-
-#     if return_metrics:
-#         return {
-#             "mse": mse_l, "rmse": rmse_l, "pearson_vx": pearson0, "pearson_vy": pearson1, "slope_vx": slope_x, "slope_vy": slope_y, 
-#             "mse_divergence": mse_d, "rmse_divergence": rmse_d, "pearson_divergence": pearson_d, "slope_divergence": slope_d,
-#             "mse_vorticity": mse_v, "rmse_vorticity": rmse_v, "pearson_vorticity": pearson_v, "slope_vorticity": slope_v
-#        }
-
-
 def plot_prediction_and_scatter_full_map_vertical (deepvel_object, params_model, dataset_path, test_save_path, name, zoomed_in_size = None, plot_intensity = False, n_input_channels = 2, 
                                                    scatter_dim = None, zoom_out = 0, write_metrics = False, denormalized = False, mean_vel = None, std_vel = None, return_metrics = False, model_type = ModelType.DEEPVEL_I, title = None, tau = None):
     """
@@ -545,7 +489,7 @@ def plot_prediction_and_scatter_full_map_vertical (deepvel_object, params_model,
         tau: Optional optical depth parameter
     """
 
-    plt.rcParams['font.size'] = 40
+    plt.rcParams['font.size'] = 43
 
     inputs, velocity_to_plot, velocity_pred = load_data_and_get_predictions(deepvel_object, params_model, dataset_path, n_input_channels, model_type, tau, zoomed_in_size)
     intensity_to_plot = inputs["intensity"]
@@ -558,7 +502,6 @@ def plot_prediction_and_scatter_full_map_vertical (deepvel_object, params_model,
     rmse_l = torch.sqrt(mse_l)
 
     matplotlib.use('agg')
-    # plt.figure()
 
     nrows = 4 if plot_intensity else 3
     ncols = 2 if velocity_to_plot.shape[0]==2 else 3
@@ -566,12 +509,14 @@ def plot_prediction_and_scatter_full_map_vertical (deepvel_object, params_model,
     if velocity_to_plot.shape[0]==3:
         nrows +=1
 
-    if velocity_to_plot.shape[0]==3: figsize = (40, 60)
-    else: figsize=(37, 45)
+    if velocity_to_plot.shape[0]==3: figsize = (35, 60)
+    else: figsize=(30, 45)
 
     fig, ax = plt.subplots(nrows = nrows, ncols = ncols, figsize=figsize)
     plt.subplots_adjust(hspace=0.4)
-
+    
+    left_center = 0.30  
+    right_center = 0.72
 
     if plot_intensity == True:
         intensity_0 = intensity_to_plot[n_input_channels/2 -1, :, :].cpu().numpy()
@@ -591,8 +536,6 @@ def plot_prediction_and_scatter_full_map_vertical (deepvel_object, params_model,
         vel_2_pred = velocity_pred[2, :, :].cpu().numpy()
 
     idx = 0
-
-    #TODO intensity denormalization option
 
     if plot_intensity == True:
         middle_channel = int(n_input_channels/2)
@@ -733,13 +676,347 @@ def plot_prediction_and_scatter_full_map_vertical (deepvel_object, params_model,
     
     if title is not None:
         if denormalized: title = title + ' (denormalized)'
-        plt.suptitle(title, fontsize=70, y=0.98)
+        plt.suptitle(title, fontsize=70, y=0.99)
 
+    fig.text(left_center, 0.03, f'$r_x$ = {pearson0:.2f}', ha='center', fontsize=60)
+    fig.text(right_center, 0.03, f'$r_y$ = {pearson1:.2f}', ha='center', fontsize=60)
+
+    plt.tight_layout(rect=[0, 0.05, 1, 1])
     if test_save_path is not None:
         if denormalized:
             fig.savefig(os.path.join(test_save_path, 'full_analysis_denormalized_' + name + '.png'))
         else:
             fig.savefig(os.path.join(test_save_path, 'full_analysis_' + name + '.png'))
+    plt.close(fig)
+
+    if return_metrics:
+        if velocity_to_plot.shape[0]==3:
+            return {
+                "mse": mse_l, "rmse": rmse_l, "pearson_vx": pearson0, "pearson_vy": pearson1, "pearson_vz": pearson2, "slope_vx": slope_x, "slope_vy": slope_y, "slope_vz": slope_z,
+                "mse_divergence": mse_d, "rmse_divergence": rmse_d, "pearson_divergence": pearson_d, "slope_divergence": slope_d,
+                "mse_vorticity": mse_v, "rmse_vorticity": rmse_v, "pearson_vorticity": pearson_v, "slope_vorticity": slope_v
+            }
+        return {"mse": mse_l, "rmse": rmse_l, "pearson_vx": pearson0, "pearson_vy": pearson1, "slope_vx": slope_x, "slope_vy": slope_y, 
+                "mse_divergence": mse_d, "rmse_divergence": rmse_d, "pearson_divergence": pearson_d, "slope_divergence": slope_d,
+                "mse_vorticity": mse_v, "rmse_vorticity": rmse_v, "pearson_vorticity": pearson_v, "slope_vorticity": slope_v}
+    
+
+def plot_prediction_and_scatter_full_map_vertical_custom (deepvel_object, params_model, dataset_path, test_save_path, name, zoomed_in_size = None, n_input_channels = 2, 
+                                                   scatter_dim = None, zoom_out = 0, write_metrics = False, denormalized = False, mean_vel = None, std_vel = None, return_metrics = False, 
+                                                   model_type = ModelType.DEEPVEL_I, title = None, tau = None):
+    """
+    Plot predictions and scatter plots for a full map in a vertical layout with some axes customized.
+    """
+
+    plt.rcParams['font.size'] = 43
+
+    inputs, velocity_to_plot, velocity_pred = load_data_and_get_predictions(deepvel_object, params_model, dataset_path, n_input_channels, model_type, tau, zoomed_in_size)
+    extent = [0, velocity_to_plot.shape[2]*0.016, 0, velocity_to_plot.shape[1]*0.016]
+        
+    mse_l = nn.functional.mse_loss(velocity_pred.to(device), velocity_to_plot.to(device))
+    rmse_l = torch.sqrt(mse_l)
+
+    matplotlib.use('agg')
+    nrows = 3
+    ncols = 2 if velocity_to_plot.shape[0]==2 else 3
+
+    if velocity_to_plot.shape[0]==3:
+        nrows +=1
+
+    if velocity_to_plot.shape[0]==3: figsize = (35, 60)
+    else: figsize=(27, 42)
+
+    fig, ax = plt.subplots(nrows = nrows, ncols = ncols, figsize=figsize)
+    plt.subplots_adjust(hspace=0.4)
+    
+    left_center = 0.30  
+    right_center = 0.72
+
+    vel_0 = velocity_to_plot[0, :, :].cpu().numpy()
+    vel_1 = velocity_to_plot[1, :, :].cpu().numpy()
+
+    vel_0_pred = velocity_pred[0, :, :].cpu().numpy()
+    vel_1_pred = velocity_pred[1, :, :].cpu().numpy()
+
+    vel_2 = None
+    vel_2_pred = None
+
+    if velocity_to_plot.shape[0]==3:
+        vel_2 = velocity_to_plot[2, :, :].cpu().numpy()
+        vel_2_pred = velocity_pred[2, :, :].cpu().numpy()
+
+    idx = 0
+
+    if std_vel is None:
+        std_vel_x = np.std(vel_0)
+        std_vel_y = np.std(vel_1)
+    else:
+        std_vel_x = std_vel[0]
+        std_vel_y = std_vel[1]
+
+    vmin_x = -3 * std_vel_x/1e5
+    vmax_x = -1 * vmin_x
+    vmin_y = -3 * std_vel_y/1e5
+    vmax_y = -1 * vmin_y
+
+    if denormalized:
+        vel_0 = denormalize_data(vel_0, mean_vel[0], std_vel[0])/1e5
+        vel_1 = denormalize_data(vel_1, mean_vel[1], std_vel[1])/1e5
+        vel_0_pred = denormalize_data(vel_0_pred, mean_vel[0], std_vel[0])/1e5
+        vel_1_pred = denormalize_data(vel_1_pred, mean_vel[1], std_vel[1])/1e5
+
+    im = ax[idx][0].imshow(vel_0.T, cmap='bwr', vmin = vmin_x, vmax = vmax_x, origin = 'lower', extent = extent, aspect='auto')
+    ax[idx][0].set_title(f'$v_x$ - ground truth', pad = 20)
+    ax[idx][0].set_ylabel('y [Mm]')
+    ax[idx][0].set_xticklabels([])
+
+    ax[idx][1].imshow(vel_1.T, cmap='bwr', vmin = vmin_y, vmax = vmax_y, origin = 'lower', extent = extent, aspect='auto')
+    ax[idx][1].set_title(f'$v_y$ - ground truth', pad = 20)
+    ax[idx][1].set_xticklabels([])
+    ax[idx][1].set_yticklabels([])
+
+    if velocity_to_plot.shape[0]==2:
+        cbar = add_colorbar(im, ax[idx][1])
+
+    if velocity_to_plot.shape[0]==3:
+        if std_vel is None:
+            std_vel_z = np.std(vel_2)
+        else:
+            std_vel_z = std_vel[2]
+        vmin_z = -3 * std_vel_z/1e5
+        vmax_z = -1 * vmin_z
+        ax[idx][2].imshow(vel_2.T, cmap='bwr', vmin = vmin_z, vmax = vmax_z, origin = 'lower', extent = extent, aspect='auto')
+        ax[idx][2].set_title(f'$v_z$ - ground truth', pad = 20)
+        cbar = add_colorbar(im, ax[idx][2])
+
+    idx +=1
+
+    ax[idx][0].imshow(vel_0_pred.T, cmap='bwr', vmin = vmin_x, vmax = vmax_x, origin = 'lower', extent = extent, aspect='auto')
+    ax[idx][0].set_title(f'$v_x$ - predicted', pad = 20)
+    ax[idx][0].set_xlabel('x [Mm]')
+    ax[idx][0].set_ylabel('y [Mm]')
+
+    ax[idx][1].imshow(vel_1_pred.T, cmap='bwr', vmin = vmin_y, vmax = vmax_y, origin = 'lower', extent = extent, aspect='auto')
+    ax[idx][1].set_title(f'$v_y$ - predicted', pad = 20)
+    ax[idx][1].set_xlabel('x [Mm]')
+    ax[idx][1].set_yticklabels([])
+
+    if velocity_to_plot.shape[0]==2:
+        cbar = add_colorbar(im, ax[idx][1])
+
+    if velocity_to_plot.shape[0]==3:
+        ax[idx][2].imshow(vel_2_pred.T, cmap='bwr', vmin = vmin_z, vmax = vmax_z, origin = 'lower', extent = extent, aspect='auto')
+        ax[idx][2].set_title(f'$v_z$ - predicted', pad = 20)
+        ax[idx][2].set_xlabel('x [Mm]')
+        cbar = add_colorbar(im, ax[idx][2])
+
+    idx +=1
+
+    im = ax[idx][0].scatter(vel_0.flatten(), vel_0_pred.flatten(), alpha = 0.05, linewidths = 0.7)
+    min0 = min(vel_0.min(), vel_0_pred.min()) - zoom_out
+    max0 = max(vel_0.max(), vel_0_pred.max()) + zoom_out
+    ax[idx][0].plot([min0, max0], [min0, max0], color = 'red') 
+    ax[idx][0].set_title(f'$v_x$ - ground truth vs predicted', pad = 20)
+    ax[idx][0].set_xlabel('Ground truth data')
+    ax[idx][0].set_ylabel('Predicted data')
+
+    im = ax[idx][1].scatter(vel_1.flatten(), vel_1_pred.flatten(), alpha = 0.05, linewidths = 0.7)
+    min1 = min(vel_1.min(), vel_1_pred.min()) - zoom_out
+    max1 = max(vel_1.max(), vel_1_pred.max()) + zoom_out
+    ax[idx][1].plot([min1, max1], [min1, max1], color = 'red') 
+    ax[idx][1].set_title(f'$v_y$ - ground truth vs predicted', pad = 20)
+    ax[idx][1].set_xlabel('Ground truth data')
+    ax[idx][1].set_yticklabels([])
+
+    ax[idx][1].set_ylabel('Predicted data')
+
+    if velocity_to_plot.shape[0]==3:
+        im = ax[idx][2].scatter(vel_2.flatten(), vel_2_pred.flatten(), alpha = 0.05, linewidths = 0.7)
+        min2 = min(vel_2.min(), vel_2_pred.min()) - zoom_out
+        max2 = max(vel_2.max(), vel_2_pred.max()) + zoom_out
+        ax[idx][2].plot([min2, max2], [min2, max2], color = 'red') 
+        ax[idx][2].set_title(f'$v_z$ - ground truth vs predicted', pad = 20)
+        ax[idx][2].set_xlabel('Ground truth data')
+        ax[idx][2].set_ylabel('Predicted data')
+
+    divergence_orig = get_divergence(vel_0, vel_1, vel_2)
+    divergence_pred = get_divergence(vel_0_pred, vel_1_pred, vel_2_pred)
+    vorticity_orig = get_vorticity(vel_0, vel_1, vel_2)
+    vorticity_pred = get_vorticity(vel_0_pred, vel_1_pred, vel_2_pred)
+
+    if velocity_to_plot.shape[0]==3:
+        mse_l, rmse_l, pearson0, pearson1, pearson2, slope_x, slope_y, slope_z = get_all_metrics(velocity_to_plot, velocity_pred).values()
+    else:
+        mse_l, rmse_l, pearson0, pearson1, slope_x, slope_y = get_all_metrics(velocity_to_plot, velocity_pred).values()
+    mse_d, rmse_d, pearson_d, slope_d = get_all_metrics(divergence_orig, divergence_pred, is_divergence=True).values()
+    mse_v, rmse_v, pearson_v, slope_v = get_all_metrics(vorticity_orig, vorticity_pred, is_divergence=True).values()
+
+    if write_metrics: 
+        if velocity_to_plot.shape[0]==3:
+            fig.text(0.5, 0.05, f'MSE Loss: {mse_l:.4f}, Root MSE Loss: {rmse_l:.4f}, Pearson Vx: {pearson0:.3f}, Pearson Vy: {pearson1:.3f}, Pearson Vz: {pearson2:.3f}, Slope Vx: {slope_x:.3f}, Slope Vy: {slope_y:.3f}, Slope Vz: {slope_z:.3f}', 
+             ha='center', fontsize=16)
+            
+        else:   
+            fig.text(0.5, 0.05, f'MSE Loss: {mse_l:.4f}, Root MSE Loss: {rmse_l:.4f}, Pearson Vx: {pearson0:.3f}, Pearson Vy: {pearson1:.3f}, Slope Vx: {slope_x:.3f}, Slope Vy: {slope_y:.3f}', 
+            ha='center', fontsize=16)
+    
+    else: 
+        if velocity_to_plot.shape[0]==3:
+            print(f'MSE Loss: {mse_l:.4f}, Root MSE Loss: {rmse_l:.4f}, Pearson Vx: {pearson0:.3f}, Pearson Vy: {pearson1:.3f}, Pearson Vz: {pearson2:.3f}, Slope Vx: {slope_x:.3f}, Slope Vy: {slope_y:.3f}, Slope Vz: {slope_z:.3f}')
+        else:
+            print(f'MSE Loss: {mse_l:.4f}, Root MSE Loss: {rmse_l:.4f}, Pearson Vx: {pearson0:.3f}, Pearson Vy: {pearson1:.3f}, Slope Vx: {slope_x:.3f}, Slope Vy: {slope_y:.3f}')
+        print(f'Divergence - MSE Loss: {mse_d:.4f}, Root MSE Loss: {rmse_d:.4f}, Pearson: {pearson_d:.3f}, Slope: {slope_d:.3f}')
+        print(f'Vorticity - MSE Loss: {mse_v:.4f}, Root MSE Loss: {rmse_v:.4f}, Pearson: {pearson_v:.3f}, Slope: {slope_v:.3f}')
+    
+    if title is not None:
+        if denormalized: title = title
+        plt.suptitle(title, fontsize=70, y=0.99)
+
+    fig.text(left_center, 0.3, f'$r_x$ = {pearson0:.2f}', ha='center', fontsize=60)
+    fig.text(right_center, 0.3, f'$r_y$ = {pearson1:.2f}', ha='center', fontsize=60)
+
+    plt.tight_layout(rect=[0, 0.05, 1, 1])
+    if test_save_path is not None:
+        if denormalized:
+            fig.savefig(os.path.join(test_save_path, 'full_analysis_denormalized_' + name + '_custom.png'))
+        else:
+            fig.savefig(os.path.join(test_save_path, 'full_analysis_' + name + '_custom.png'))
+    plt.close(fig)
+
+    if return_metrics:
+        if velocity_to_plot.shape[0]==3:
+            return {
+                "mse": mse_l, "rmse": rmse_l, "pearson_vx": pearson0, "pearson_vy": pearson1, "pearson_vz": pearson2, "slope_vx": slope_x, "slope_vy": slope_y, "slope_vz": slope_z,
+                "mse_divergence": mse_d, "rmse_divergence": rmse_d, "pearson_divergence": pearson_d, "slope_divergence": slope_d,
+                "mse_vorticity": mse_v, "rmse_vorticity": rmse_v, "pearson_vorticity": pearson_v, "slope_vorticity": slope_v
+            }
+        return {"mse": mse_l, "rmse": rmse_l, "pearson_vx": pearson0, "pearson_vy": pearson1, "slope_vx": slope_x, "slope_vy": slope_y, 
+                "mse_divergence": mse_d, "rmse_divergence": rmse_d, "pearson_divergence": pearson_d, "slope_divergence": slope_d,
+                "mse_vorticity": mse_v, "rmse_vorticity": rmse_v, "pearson_vorticity": pearson_v, "slope_vorticity": slope_v}
+
+
+def plot_prediction_and_scatter_full_map_vertical_custom_scatter (deepvel_object, params_model, dataset_path, test_save_path, name, zoomed_in_size = None, n_input_channels = 2, 
+                                                   scatter_dim = None, zoom_out = 0, write_metrics = False, denormalized = False, mean_vel = None, std_vel = None, return_metrics = False, 
+                                                   model_type = ModelType.DEEPVEL_I, title = None, tau = None):
+    """
+    Plot predictions and scatter plots for a full map in a vertical layout with some axes customized.
+    """
+
+    plt.rcParams['font.size'] = 43
+
+    inputs, velocity_to_plot, velocity_pred = load_data_and_get_predictions(deepvel_object, params_model, dataset_path, n_input_channels, model_type, tau, zoomed_in_size)
+    extent = [0, velocity_to_plot.shape[2]*0.016, 0, velocity_to_plot.shape[1]*0.016]
+        
+    mse_l = nn.functional.mse_loss(velocity_pred.to(device), velocity_to_plot.to(device))
+    rmse_l = torch.sqrt(mse_l)
+
+    matplotlib.use('agg')
+    nrows = 1
+    ncols = 2 if velocity_to_plot.shape[0]==2 else 3
+
+    if velocity_to_plot.shape[0]==3:
+        nrows +=1
+
+    if velocity_to_plot.shape[0]==3: figsize = (40, 15)
+    else: figsize=(25, 15)
+
+    fig, ax = plt.subplots(nrows = nrows, ncols = ncols, figsize=figsize)
+    plt.subplots_adjust(hspace=0.4)
+    
+    left_center = 0.30  
+    right_center = 0.72
+
+    vel_0 = velocity_to_plot[0, :, :].cpu().numpy()
+    vel_1 = velocity_to_plot[1, :, :].cpu().numpy()
+
+    vel_0_pred = velocity_pred[0, :, :].cpu().numpy()
+    vel_1_pred = velocity_pred[1, :, :].cpu().numpy()
+
+    vel_2 = None
+    vel_2_pred = None
+
+    if velocity_to_plot.shape[0]==3:
+        vel_2 = velocity_to_plot[2, :, :].cpu().numpy()
+        vel_2_pred = velocity_pred[2, :, :].cpu().numpy()
+
+    idx = 0
+
+    if std_vel is None:
+        std_vel_x = np.std(vel_0)
+        std_vel_y = np.std(vel_1)
+    else:
+        std_vel_x = std_vel[0]
+        std_vel_y = std_vel[1]
+
+    vmin_x = -3 * std_vel_x/1e5
+    vmax_x = -1 * vmin_x
+    vmin_y = -3 * std_vel_y/1e5
+    vmax_y = -1 * vmin_y
+
+    if denormalized:
+        vel_0 = denormalize_data(vel_0, mean_vel[0], std_vel[0])/1e5
+        vel_1 = denormalize_data(vel_1, mean_vel[1], std_vel[1])/1e5
+        vel_0_pred = denormalize_data(vel_0_pred, mean_vel[0], std_vel[0])/1e5
+        vel_1_pred = denormalize_data(vel_1_pred, mean_vel[1], std_vel[1])/1e5
+
+    im = ax[0].scatter(vel_0.flatten(), vel_0_pred.flatten(), alpha = 0.05, linewidths = 0.7)
+    min0 = min(vel_0.min(), vel_0_pred.min()) - zoom_out
+    max0 = max(vel_0.max(), vel_0_pred.max()) + zoom_out
+    ax[0].plot([min0, max0], [min0, max0], color = 'red') 
+    ax[0].set_title(f'$v_x$ - ground truth vs predicted', pad = 20)
+    ax[0].set_xlabel('Ground truth data')
+    ax[0].set_ylabel('Predicted data')
+
+    im = ax[1].scatter(vel_1.flatten(), vel_1_pred.flatten(), alpha = 0.05, linewidths = 0.7)
+    min1 = min(vel_1.min(), vel_1_pred.min()) - zoom_out
+    max1 = max(vel_1.max(), vel_1_pred.max()) + zoom_out
+    ax[1].plot([min1, max1], [min1, max1], color = 'red') 
+    ax[1].set_title(f'$v_y$ - ground truth vs predicted', pad = 20)
+    ax[1].set_xlabel('Ground truth data')
+    ax[1].set_yticklabels([])
+
+    divergence_orig = get_divergence(vel_0, vel_1, vel_2)
+    divergence_pred = get_divergence(vel_0_pred, vel_1_pred, vel_2_pred)
+    vorticity_orig = get_vorticity(vel_0, vel_1, vel_2)
+    vorticity_pred = get_vorticity(vel_0_pred, vel_1_pred, vel_2_pred)
+
+    if velocity_to_plot.shape[0]==3:
+        mse_l, rmse_l, pearson0, pearson1, pearson2, slope_x, slope_y, slope_z = get_all_metrics(velocity_to_plot, velocity_pred).values()
+    else:
+        mse_l, rmse_l, pearson0, pearson1, slope_x, slope_y = get_all_metrics(velocity_to_plot, velocity_pred).values()
+    mse_d, rmse_d, pearson_d, slope_d = get_all_metrics(divergence_orig, divergence_pred, is_divergence=True).values()
+    mse_v, rmse_v, pearson_v, slope_v = get_all_metrics(vorticity_orig, vorticity_pred, is_divergence=True).values()
+
+    if write_metrics: 
+        if velocity_to_plot.shape[0]==3:
+            fig.text(0.5, 0.05, f'MSE Loss: {mse_l:.4f}, Root MSE Loss: {rmse_l:.4f}, Pearson Vx: {pearson0:.3f}, Pearson Vy: {pearson1:.3f}, Pearson Vz: {pearson2:.3f}, Slope Vx: {slope_x:.3f}, Slope Vy: {slope_y:.3f}, Slope Vz: {slope_z:.3f}', 
+             ha='center', fontsize=16)
+            
+        else:   
+            fig.text(0.5, 0.05, f'MSE Loss: {mse_l:.4f}, Root MSE Loss: {rmse_l:.4f}, Pearson Vx: {pearson0:.3f}, Pearson Vy: {pearson1:.3f}, Slope Vx: {slope_x:.3f}, Slope Vy: {slope_y:.3f}', 
+            ha='center', fontsize=16)
+    
+    else: 
+        if velocity_to_plot.shape[0]==3:
+            print(f'MSE Loss: {mse_l:.4f}, Root MSE Loss: {rmse_l:.4f}, Pearson Vx: {pearson0:.3f}, Pearson Vy: {pearson1:.3f}, Pearson Vz: {pearson2:.3f}, Slope Vx: {slope_x:.3f}, Slope Vy: {slope_y:.3f}, Slope Vz: {slope_z:.3f}')
+        else:
+            print(f'MSE Loss: {mse_l:.4f}, Root MSE Loss: {rmse_l:.4f}, Pearson Vx: {pearson0:.3f}, Pearson Vy: {pearson1:.3f}, Slope Vx: {slope_x:.3f}, Slope Vy: {slope_y:.3f}')
+        print(f'Divergence - MSE Loss: {mse_d:.4f}, Root MSE Loss: {rmse_d:.4f}, Pearson: {pearson_d:.3f}, Slope: {slope_d:.3f}')
+        print(f'Vorticity - MSE Loss: {mse_v:.4f}, Root MSE Loss: {rmse_v:.4f}, Pearson: {pearson_v:.3f}, Slope: {slope_v:.3f}')
+    
+    if title is not None:
+        if denormalized: title = title
+        plt.suptitle(title, fontsize=70, y=0.97)
+
+    fig.text(left_center, 0.75, f'$r_x$ = {pearson0:.2f}', ha='center', fontsize=60)
+    fig.text(right_center, 0.75, f'$r_y$ = {pearson1:.2f}', ha='center', fontsize=60)
+
+    plt.tight_layout(rect=[0, 0.05, 1, 1])
+    if test_save_path is not None:
+        if denormalized:
+            fig.savefig(os.path.join(test_save_path, 'full_analysis_denormalized_' + name + '_custom.png'))
+        else:
+            fig.savefig(os.path.join(test_save_path, 'full_analysis_' + name + '_custom.png'))
     plt.close(fig)
 
     if return_metrics:

@@ -64,6 +64,20 @@ def denormalize_data(data, mean, std):
     """
     return data * std + mean
 
+def denormalize_data_vectors(data, mean, std):
+    """
+    Denormalize the data using the provided mean and standard deviation.
+    Args:
+        data: Normalized data tensor (vx, vy)
+        mean: Mean used for normalization
+        std: Standard deviation used for normalization
+    Returns:
+        Denormalized data tensor
+    """
+    d1 = data[0, :, :] * std[0] + mean[0]
+    d2 = data[1, :, :] * std[1] + mean[1]
+    return torch.stack((d1, d2), dim=0)
+
 def calculate_correlation (original, predicted):
 
     '''
