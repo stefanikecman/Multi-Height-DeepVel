@@ -415,27 +415,7 @@ if (__name__ == '__main__'):
 
     main_root = "/dat/xenoss/"
 
-    # network_path = os.path.join(main_root, f'models_benchmarking/DeepVel_vz/tau_1.0')
-    # data_path = os.path.join(main_root, f'multi_height_data_new/final_dataset_multiheight/train')
-    # deepvel_net = DeepVel_run(root = main_root, in_shape=(4, 128, 128), out_shape=(2, 128, 128), type=ModelType.DEEPVEL_Vz, batch = 64, dataset_path = data_path, network_path = os.path.join(network_path, 'checkpoints'), tau="1.0", cadence=10)
-    # deepvel_net.train(100)
-
     network_path = os.path.join(main_root, f'models_benchmarking/DeepVel_vz/tau_0.1')
     data_path = os.path.join(main_root, f'multi_height_data_new/final_dataset_multiheight/train')
     deepvel_net = DeepVel_run(root = main_root, in_shape=(4, 128, 128), out_shape=(2, 128, 128),  type=ModelType.DEEPVEL_Vz, batch = 64, dataset_path = data_path, network_path = os.path.join(network_path, 'checkpoints'), tau="1e-1", cadence=10)
     deepvel_net.train(100)
-
-    # network_path = os.path.join(main_root, f'models_benchmarking/cadence_30/DeepVel_I')
-    # data_path = os.path.join(main_root, f'multi_height_data_new/final_dataset_multiheight/train')
-    # deepvel_net = DeepVel_run(root = main_root, in_shape=(2, 128, 128), out_shape=(2, 128, 128), type=ModelType.DEEPVEL_I, batch = 64, dataset_path = data_path, network_path = os.path.join(network_path, 'checkpoints'), tau="1.0", cadence=30)
-    # deepvel_net.train(100)
-
-    # network_path = os.path.join(main_root, f'models_benchmarking/cadence_30/DeepVel_Bz/tau_1.0')
-    # data_path = os.path.join(main_root, f'multi_height_data_new/final_dataset_multiheight/train')
-    # deepvel_net = DeepVel_run(root = main_root, in_shape=(4, 128, 128), out_shape=(2, 128, 128),  type=ModelType.DEEPVEL_B, batch = 64, dataset_path = data_path, network_path = os.path.join(network_path, 'checkpoints'), tau="1.0", cadence=30)
-    # deepvel_net.train(100)
-
-    # network_path = os.path.join(main_root, f'models_benchmarking/cadence_30/DeepVel_Bz/tau_0.1')
-    # data_path = os.path.join(main_root, f'multi_height_data_new/final_dataset_multiheight/train')
-    # deepvel_net = DeepVel_run(root = main_root, in_shape=(4, 128, 128), out_shape=(2, 128, 128),  type=ModelType.DEEPVEL_B, batch = 64, dataset_path = data_path, network_path = os.path.join(network_path, 'checkpoints'), tau="1e-1", cadence=30)
-    # deepvel_net.train(100)

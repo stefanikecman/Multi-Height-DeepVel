@@ -17,10 +17,11 @@ metrics_by_tau = OrderedDict()
 dataset_path = "/home/xenoss/dat/multi_height_data_new/final_dataset_multiheight/test/" 
 
 ################## NOTE PLOTTING LOSS CURVES FOR BENCHMARK MODELS #####################
-# tau = ["1.0", "1.0", "0.1", "1.0", "0.1"]
-# model_types = [ModelType.DEEPVEL_I, ModelType.DEEPVEL_B, ModelType.DEEPVEL_B, ModelType.DEEPVEL_Vz, ModelType.DEEPVEL_Vz]
-# ckpts_path = os.path.join(main_root, 'models_benchmarking/')
-# plot_train_val_losses(tau_levels=tau, ckpts_path=ckpts_path, model_type=model_types, name='benchmarking_training_all_combined', save_path=os.path.join(main_root, 'models_benchmarking/'))
+tau = ["1.0", "1.0", "0.1", "1.0", "0.1"]
+model_types = [ModelType.DEEPVEL_I, ModelType.DEEPVEL_B, ModelType.DEEPVEL_B, ModelType.DEEPVEL_Vz, ModelType.DEEPVEL_Vz]
+ckpts_path = os.path.join(main_root, 'models_benchmarking/')
+plot_train_val_losses(tau_levels=tau, ckpts_path=ckpts_path, model_type=model_types, name='benchmarking_training_all_combined', save_path=os.path.join(main_root, 'models_benchmarking/'))
+
 
 #######################################################################################
 
@@ -174,8 +175,8 @@ dataset_path = "/home/xenoss/dat/multi_height_data_new/final_dataset_multiheight
 #         prediction = deepvel_net.predict(input,params_model)
 
 #         #NOTE denormalize results and ground truth and then compute the metrics (in km/s)
-#         ground_truth = denormalize_data_vectors(ground_truth, mean_vel, std_vel)/1e5
-#         prediction = denormalize_data_vectors(prediction, mean_vel, std_vel)/1e5 #1e5 to convert to km/s
+      #   ground_truth = denormalize_data_vectors(ground_truth, mean_vel, std_vel)/1e5
+      #   prediction = denormalize_data_vectors(prediction, mean_vel, std_vel)/1e5 #1e5 to convert to km/s
 
 #         divergence_orig = get_divergence(ground_truth[0], ground_truth[1])
 #         divergence_pred = get_divergence(prediction[0], prediction[1])

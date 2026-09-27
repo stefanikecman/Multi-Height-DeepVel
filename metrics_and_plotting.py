@@ -23,6 +23,7 @@ class ModelType(Enum):
     STOKES_IV = 7
     DEEPVEL_Vz = 8
     HYBRID_Ivz = 9
+    HYBRID_IB = 10
 
 def plot_train_val_losses(tau_levels, ckpts_path, model_type: ModelType, save_path, name):
     """
@@ -50,7 +51,9 @@ def plot_train_val_losses(tau_levels, ckpts_path, model_type: ModelType, save_pa
             model_glob = f"{ckpts_path}/Hybrid_I_B_vz/tau_{tau}/checkpoints/*.npy"
         elif model_type[i] == ModelType.HYBRID_Ivz:
             model_glob = f"{ckpts_path}/Hybrid_I_vz/tau_{tau}/checkpoints/*.npy"
-        
+        elif model_type[i] == ModelType.HYBRID_IB:
+            model_glob = f"{ckpts_path}/Hybrid_I_B/tau_{tau}/checkpoints/*.npy"
+
         path = glob.glob(model_glob)[0]
         with open(path, "rb") as f:
             _ = np.load(f, allow_pickle=True).item()
@@ -65,7 +68,7 @@ def plot_train_val_losses(tau_levels, ckpts_path, model_type: ModelType, save_pa
         all_train.append(train_rmse)
         all_val.append(val_rmse)
 
-    plt.figure(figsize=(14, 9))
+    plt.figure(figsize=(14, 11))
     plt.rcParams['font.size'] = 20
 
     cmap = plt.get_cmap('tab10')
@@ -88,6 +91,8 @@ def plot_train_val_losses(tau_levels, ckpts_path, model_type: ModelType, save_pa
             label = rf"Hybrid I + B$_z$ + v$_z$ $\tau$={taus[i]}"
         elif model_type[i] == ModelType.HYBRID_Ivz:
             label = rf"Hybrid I + v$_z$ $\tau$={taus[i]}"
+        elif model_type[i] == ModelType.HYBRID_IB:
+            label = rf"Hybrid I + B$_z$ $\tau$={taus[i]}"
         plt.plot(x, train, color=color, linestyle='-', linewidth=2, label=f"{label} train")
         plt.plot(x, val,   color=color, linestyle='--', linewidth=1.5, label=f"{label} val")
 
@@ -112,14 +117,14 @@ def load_data_based_on_model_type(dataset_path, n_input_channels, model_type: Mo
         "stokes_I": None,
         "stokes_V": None
     }
-    if model_type == ModelType.HYBRID_IBvz or model_type== ModelType.DEEPVEL_I or model_type== ModelType.HYBRID_Ivz:
+    if model_type == ModelType.HYBRID_IBvz or model_type== ModelType.DEEPVEL_I or model_type== ModelType.HYBRID_Ivz or model_type == ModelType.HYBRID_IB:
         if tau is not None:
             inputs["intensity"] = np.load(os.path.join(dataset_path, f"intensities_tau_{tau}.npy"))
         else:
             inputs["intensity"] = np.load(os.path.join(dataset_path, f"intensities_tau_{n_input_channels}.npy"))
 
 
-    if model_type == ModelType.HYBRID_Bvz or model_type== ModelType.DEEPVEL_B or model_type== ModelType.HYBRID_IBvz:
+    if model_type == ModelType.HYBRID_Bvz or model_type== ModelType.DEEPVEL_B or model_type== ModelType.HYBRID_IBvz or model_type== ModelType.HYBRID_IB:
         if tau is not None:
             inputs["B"] = np.load(os.path.join(dataset_path, f"B_tau_{tau}.npy"))
             
@@ -224,6 +229,9 @@ def load_data_and_get_predictions(deepvel_object, params_model, dataset_path, n_
 
     elif model_type == ModelType.HYBRID_Ivz:
         velocity_pred = deepvel_object.predict(intensity_to_plot, vz_to_plot, params_model)
+    
+    elif model_type == ModelType.HYBRID_IB:
+        velocity_pred = deepvel_object.predict(intensity_to_plot, B_to_plot, params_model)
 
     elif model_type == ModelType.HYBRID_Bvz:
         velocity_pred = deepvel_object.predict(B_to_plot, vz_to_plot, params_model)

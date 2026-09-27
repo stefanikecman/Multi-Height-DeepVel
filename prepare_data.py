@@ -13,10 +13,6 @@ import shutil
 import muram as mio
 
 main_path = "/dat/milic/2D/"
-# intensities_path = "/home/xenoss/data/kecman_project/DeepVel_3D_velocity/intensities/"
-# destination_velocities = "/home/xenoss/data/kecman_project/DeepVel_3D_velocity/velocities/"
-# velocities_path = "/home/xenoss/data/kecman_project/DeepVel_3D_velocity/velocities_normalized_together/"
-# dataset_path = "/home/xenoss/data/kecman_project/DeepVel_3D_velocity/main_dataset_experiment2/"
 
 def load_data (origin_path, destination_path):
     """

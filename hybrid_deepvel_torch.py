@@ -16,41 +16,54 @@ from torchinfo import summary
 
 class dataset_deepVel(Dataset): 
     """
-    Dataset class for DeepVel, modified to take two inputs: B and vz or I and vz.
+    Dataset class for DeepVel, modified to take two inputs: B and vz, I and vz or I and B.
     """ 
     def __init__(self, dataset_path, in_channels = 4, test_idx = None, test = False, tau = None, type = ModelType.HYBRID_Bvz):
         
         self.in_channels = in_channels
-        self.vz_dir = os.path.join(dataset_path, "inputs/vz") if tau is None else os.path.join(dataset_path, f"inputs/vz/tau_{tau}")
-        self.velocities_dir = os.path.join(dataset_path, "labels") if tau is None else os.path.join(dataset_path, f"labels/tau_{tau}")
         self.type = type
 
+        self.velocities_dir = os.path.join(dataset_path, "labels") if tau is None else os.path.join(dataset_path, f"labels/tau_{tau}")
         velocities = os.listdir(self.velocities_dir)
-        vz = os.listdir(self.vz_dir)
+        velocities.sort()        
+        self.velocities = velocities
+
+        self.n_train_datapoints = len(self.velocities)
+        self.test = test
+        self.test_idx = test_idx
+        
         if type == ModelType.HYBRID_Bvz:
             self.magnetic_fields_dir = os.path.join(dataset_path, "inputs/B") if tau is None else os.path.join(dataset_path, f"inputs/B/tau_{tau}")
             magnetic_fields = os.listdir(self.magnetic_fields_dir)
             magnetic_fields.sort()
             self.magnetic_fields = magnetic_fields
-            print("loading data from : ", self.velocities_dir, self.magnetic_fields_dir, self.vz_dir)
+
+            self.vz_dir = os.path.join(dataset_path, "inputs/vz") if tau is None else os.path.join(dataset_path, f"inputs/vz/tau_{tau}")
+            vz = os.listdir(self.vz_dir)
+            vz.sort()
+            self.vz = vz
 
         elif type == ModelType.HYBRID_Ivz:
             self.intensities_dir = os.path.join(dataset_path, "inputs/I") if tau is None else os.path.join(dataset_path, f"inputs/I/tau_{tau}")
             intensities = os.listdir(self.intensities_dir)
             intensities.sort()
             self.intensities = intensities
-            print("loading data from : ", self.velocities_dir, self.intensities_dir, self.vz_dir)
 
-        velocities.sort()        
-        vz.sort()
+            self.vz_dir = os.path.join(dataset_path, "inputs/vz") if tau is None else os.path.join(dataset_path, f"inputs/vz/tau_{tau}")
+            vz = os.listdir(self.vz_dir)
+            vz.sort()
+            self.vz = vz
 
-        self.velocities = velocities
-        self.vz = vz
+        elif type == ModelType.HYBRID_IB:
+            self.intensities_dir = os.path.join(dataset_path, "inputs/I") if tau is None else os.path.join(dataset_path, f"inputs/I/tau_{tau}")
+            intensities = os.listdir(self.intensities_dir)
+            intensities.sort()
+            self.intensities = intensities
 
-        self.n_train_datapoints = len(self.vz)
-        
-        self.test = test
-        self.test_idx = test_idx
+            self.magnetic_fields_dir = os.path.join(dataset_path, "inputs/B") if tau is None else os.path.join(dataset_path, f"inputs/B/tau_{tau}")
+            magnetic_fields = os.listdir(self.magnetic_fields_dir)
+            magnetic_fields.sort()
+            self.magnetic_fields = magnetic_fields
 
     def __len__(self):
 
@@ -74,20 +87,31 @@ class dataset_deepVel(Dataset):
             idx = self.validation_idx[idx]
 
         velocity_index = self.velocities[idx].replace('velocities_', '')
-        vz_index = self.vz[idx].replace('vz_', '')
 
         if self.type == ModelType.HYBRID_Bvz:
             mag_index = self.magnetic_fields[idx].replace('B_', '')
+            vz_index = self.vz[idx].replace('vz_', '')
+            if vz_index != velocity_index:
+                raise ValueError("Input (vz) - label data not corresponding: ", self.vz[idx] + " "+ self.velocities[idx])
             if mag_index != velocity_index:
-                    raise ValueError("Input (B) - label data not corresponding: ", self.magnetic_fields[idx] + " "+ self.velocities[idx])
+                raise ValueError("Input (B) - label data not corresponding: ", self.magnetic_fields[idx] + " "+ self.velocities[idx])
         
         elif self.type == ModelType.HYBRID_Ivz:
             intensity_index = self.intensities[idx].replace('intensity_', '')
+            vz_index = self.vz[idx].replace('vz_', '')
+            if vz_index != velocity_index:
+                raise ValueError("Input (vz) - label data not corresponding: ", self.vz[idx] + " "+ self.velocities[idx])
             if intensity_index != velocity_index:
                 raise ValueError("Input (I) - label data not corresponding: ", self.intensities[idx] + " "+ self.velocities[idx])
             
-        if vz_index != velocity_index:
-                raise ValueError("Input (vz) - label data not corresponding: ", self.vz[idx] + " "+ self.velocities[idx])
+        elif self.type == ModelType.HYBRID_IB:
+            intensity_index = self.intensities[idx].replace('intensity_', '')
+            B_index = self.magnetic_fields[idx].replace('B_', '')
+            if B_index != velocity_index:
+                raise ValueError("Input (B) - label data not corresponding: ", self.magnetic_fields[idx] + " "+ self.velocities[idx])
+            if intensity_index != velocity_index:
+                raise ValueError("Input (I) - label data not corresponding: ", self.intensities[idx] + " "+ self.velocities[idx])
+            
 
     def __getitem__(self, idx):
         """
@@ -97,6 +121,7 @@ class dataset_deepVel(Dataset):
         Returns:
             Tuple of (magnetic field, vz, velocity) tensors if type is HYBRID_Bvz
             or (intensity, vz, velocity) tensors if type is HYBRID_Ivz
+            or (intensity, magnetic field, velocity) tensors if type is HYBRID_IB
         Raises:
             ValueError: If the input and label data do not correspond
         """
@@ -121,6 +146,15 @@ class dataset_deepVel(Dataset):
             self.check_indices(idx, self.test)
 
             return B, vz, vel
+        
+        elif self.type == ModelType.HYBRID_IB:
+            I = np.load(os.path.join(self.intensities_dir, self.intensities[idx]))
+            B = np.load(os.path.join(self.magnetic_fields_dir, self.magnetic_fields[idx]))
+            vel = np.load(os.path.join(self.velocities_dir, self.velocities[idx]))
+
+            self.check_indices(idx, self.test)
+
+            return I, B, vel
 
 class ResidualBlock(nn.Module):
     """
@@ -151,12 +185,10 @@ class DeepVel_net(nn.Module):
     """
     def __init__(self, in_channels, out_channels, n_filters=32, blocks=20):
         super(DeepVel_net, self).__init__()
-        #parameters
         self.n_filters = n_filters
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.blocks = blocks
-        #Layers
         self.conv_in1_1 = nn.Sequential(nn.Conv2d(self.in_channels, self.n_filters, kernel_size = 3, stride=1, padding=1),
                                        nn.BatchNorm2d(self.n_filters),
                                        nn.ReLU()
@@ -217,7 +249,7 @@ class DeepVel_net(nn.Module):
 
 class DeepVel_run(object):
     """
-    Class for running the DeepVel model, modified to take two inputs: B and vz or I and vz.
+    Class for running the DeepVel model, modified to take two inputs.
     """
     def __init__(self, batch, dataset_path, network_path, in_shape= (4, 128, 128), out_shape= (2, 128, 128), root = None, tau = None, type = ModelType.HYBRID_Bvz):
  
@@ -245,7 +277,6 @@ class DeepVel_run(object):
             self.trainloader = DataLoader(self.trainset, batch_size=self.batch_size, shuffle = True, num_workers = 4, pin_memory=True)
             self.testloader = DataLoader(self.testset, batch_size=self.batch_size, shuffle = False, num_workers = 4, pin_memory=True)
 
-            # NOTE I commented out this line to avoid potential issues with torchsummary during testing:
             self.summary = summary(self.model, input_data = (torch.randn(self.batch_size, self.in_shape[0], self.in_shape[1], self.in_shape[2]), torch.randn(self.batch_size, self.in_shape[0], self.in_shape[1], self.in_shape[2])), device=device)
 
         self.criterion = nn.MSELoss()
@@ -365,7 +396,7 @@ class DeepVel_run(object):
          
     def predict(self, in1, in2, saved_model):
         """
-        Predict using a DeepVel saved model with two inputs: B, vz or I, vz.
+        Predict using a DeepVel saved model with two inputs: B, vz, I, vz or I, B.
 
         Args:
             in1 : Tensor or np.ndarray
@@ -408,12 +439,10 @@ if (__name__ == '__main__'):
     main_root = "/home/xenoss/dat/"
     tau_levels=[1e-1,1e-2,1e-3,1e-4]
     taus = ["1e-1", "1e-2", "1e-3", "1e-4"]
-    # tau_levels=[1.0]
-    # taus = ["1.0"]
 
     for i, tau in enumerate(tau_levels):
         print(f"Training for tau = {tau}")
-        network_path = os.path.join(main_root, f'models_multi_height/Hybrid_B_vz/tau_{taus[i]}')
+        network_path = os.path.join(main_root, f'models_multi_height/Hybrid_I_B/tau_{taus[i]}')
         data_path = os.path.join(main_root, f'multi_height_data_new/final_dataset_multiheight/train')
-        deepvel_net = DeepVel_run(root = main_root, in_shape=(4, 128, 128), out_shape=(2, 128, 128), batch = 64, dataset_path = data_path, network_path = os.path.join(network_path, 'checkpoints'), tau=taus[i], type=ModelType.HYBRID_Bvz)
+        deepvel_net = DeepVel_run(root = main_root, in_shape=(4, 128, 128), out_shape=(2, 128, 128), batch = 64, dataset_path = data_path, network_path = os.path.join(network_path, 'checkpoints'), tau=taus[i], type=ModelType.HYBRID_IB)
         deepvel_net.train(100)

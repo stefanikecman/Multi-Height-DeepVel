@@ -28,7 +28,7 @@ https://www.aanda.org/articles/aa/pdf/2017/08/aa30783-17.pdf
 
 ```bash
 git clone <repo_url>
-cd Multi-Height-DeepVel
+cd Multi-Heigt-DeepVel
 conda create --name <env-name>
 conda activate <env-name>
 pip install -r requirements.txt

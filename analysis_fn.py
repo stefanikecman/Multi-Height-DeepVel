@@ -17,7 +17,7 @@ def get_divergence(vx, vy, dx=0.016 * 1e6, dy=0.016 * 1e6):
         dx: spacing in the x-direction (default in Mm)
         dy: spacing in the y-direction (default in Mm)
     Returns:
-        Divergence of the vector field (2D tensor)
+        Divergence of the vector field (2D tensor), velocity in km/s
     """
     if isinstance(vx, np.ndarray):
         vx = torch.from_numpy(vx)
@@ -27,7 +27,7 @@ def get_divergence(vx, vy, dx=0.016 * 1e6, dy=0.016 * 1e6):
     dvx_dx = torch.gradient(vx, spacing=dx, dim=1)[0]  # x derivative
     dvy_dy = torch.gradient(vy, spacing=dy, dim=0)[0]  # y derivative
 
-    return dvx_dx + dvy_dy
+    return (dvx_dx + dvy_dy)*1e3
 
 def get_vorticity(vx, vy, dx=0.016 * 1e6, dy=0.016 * 1e6):
     """
@@ -38,7 +38,7 @@ def get_vorticity(vx, vy, dx=0.016 * 1e6, dy=0.016 * 1e6):
         dx: spacing in the x-direction (default in Mm)
         dy: spacing in the y-direction (default in Mm)
     Returns:
-        Vorticity of the vector field (2D tensor)
+        Vorticity of the vector field (2D tensor), velocity in km/s
     """
 
     
@@ -50,7 +50,7 @@ def get_vorticity(vx, vy, dx=0.016 * 1e6, dy=0.016 * 1e6):
     dvy_dx = torch.gradient(vy, spacing=dx, dim=1)[0]  # x derivative of vy
     dvx_dy = torch.gradient(vx, spacing=dy, dim=0)[0]  # y derivative of vx
 
-    return dvy_dx - dvx_dy
+    return (dvy_dx - dvx_dy)*1e3
 
 def denormalize_data(data, mean, std):
     """
@@ -73,10 +73,14 @@ def denormalize_data_vectors(data, mean, std):
         std: Standard deviation used for normalization
     Returns:
         Denormalized data tensor
+
     """
     d1 = data[0, :, :] * std[0] + mean[0]
     d2 = data[1, :, :] * std[1] + mean[1]
-    return torch.stack((d1, d2), dim=0)
+    if type(data) == torch.Tensor:
+        return torch.stack((d1, d2), dim=0)
+    else:
+        return np.stack((d1, d2), axis=0)
 
 def calculate_correlation (original, predicted):
 
